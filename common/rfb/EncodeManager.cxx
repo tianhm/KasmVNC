@@ -432,7 +432,7 @@ void EncodeManager::doUpdate(bool allowLossy, const Region& changed_,
 
       encoders[encoderKasmVideo]->writeRect(pb, Palette());
 
-      endRect(false);
+      endRect(STARTRECT_OVERRIDE_KASMVIDEO);
     }
 
     /*
@@ -708,7 +708,7 @@ Encoder *EncodeManager::startRect(const Rect& rect, int type, const bool trackQu
   return encoder;
 }
 
-void EncodeManager::endRect(const uint8_t isWebp)
+void EncodeManager::endRect(const enum startRectOverride overrider)
 {
   int klass;
   int length;
@@ -718,8 +718,10 @@ void EncodeManager::endRect(const uint8_t isWebp)
   length = conn->getOutStream(conn->cp.supportsUdp)->length() - beforeLength;
 
   klass = activeEncoders[activeType];
-  if (isWebp)
+  if (overrider == STARTRECT_OVERRIDE_WEBP)
     klass = encoderTightWEBP;
+  else if (overrider == STARTRECT_OVERRIDE_KASMVIDEO)
+    klass = encoderKasmVideo;
   stats[klass][activeType].bytes += length;
 }
 
@@ -1478,7 +1480,7 @@ void EncodeManager::writeSubRect(const Rect& rect, const PixelBuffer *pb,
     delete ppb;
   }
 
-  endRect(isWebp);
+  endRect(isWebp ? STARTRECT_OVERRIDE_WEBP : STARTRECT_NO_OVERRIDE);
 }
 
 bool EncodeManager::checkSolidTile(const Rect& r, const rdr::U8* colourValue,

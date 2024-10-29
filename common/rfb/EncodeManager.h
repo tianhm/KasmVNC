@@ -110,7 +110,7 @@ namespace rfb {
 
     Encoder *startRect(const Rect& rect, int type, const bool trackQuality = true,
                        const enum startRectOverride overrider = STARTRECT_NO_OVERRIDE);
-    void endRect(const uint8_t isWebp = 0);
+    void endRect(const enum startRectOverride overrider = STARTRECT_NO_OVERRIDE);
 
     void writeCopyRects(const Region& copied, const Point& delta);
     void writeCopyPassRects(const std::vector<CopyPassRect>& copypassed);
