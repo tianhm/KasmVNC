@@ -1281,7 +1281,7 @@ void EncodeManager::writeRects(const Region& changed, const PixelBuffer* pb,
       if (maxEncodingTime < encodingTime)
         maxEncodingTime = encodingTime;
 
-      if (framesSinceEncPrint >= rfb::Server::frameRate) {
+      if (framesSinceEncPrint >= (unsigned) rfb::Server::frameRate) {
         vlog.info("Max encoding time during the last %u frames: %u ms (limit %u, near limit %.0f)",
                   framesSinceEncPrint, maxEncodingTime, 1000/rfb::Server::frameRate,
                   1000/rfb::Server::frameRate * 0.8f);
