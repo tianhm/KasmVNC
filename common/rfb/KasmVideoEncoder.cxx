@@ -41,7 +41,6 @@ struct vp8_t {
   vpx_codec_enc_cfg_t cfg;
   vpx_codec_ctx_t codec;
   uint32_t frame;
-  uint8_t header[12];
 };
 
 KasmVideoEncoder::KasmVideoEncoder(SConnection* conn) :
@@ -89,16 +88,6 @@ static void init_vp8(vp8_t *vp8,
 static void deinit_vp8(vp8_t *vp8) {
   //vpx_img_free(&vp8->raw);
   vpx_codec_destroy(&vp8->codec);
-}
-
-static void ivf_write_frame_header(uint8_t header[12], int64_t pts, uint32_t frame_size) {
-  // LE
-  uint32_t tmp;
-  memcpy(header, &frame_size, 4);
-  tmp = (int)(pts & 0xFFFFFFFF);
-  memcpy(header + 4, &tmp, 4);
-  tmp = (int)(pts >> 32);
-  memcpy(header + 8, &tmp, 4);
 }
 
 void KasmVideoEncoder::writeRect(const PixelBuffer* pb, const Palette& palette)
@@ -170,10 +159,8 @@ void KasmVideoEncoder::writeRect(const PixelBuffer* pb, const Palette& palette)
     while ((pkt = vpx_codec_get_cx_data(&vp8->codec, &iter)) != NULL) {
       if (pkt->kind == VPX_CODEC_CX_FRAME_PKT) {
         const uint8_t keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
-        ivf_write_frame_header(vp8->header, pkt->data.frame.pts, pkt->data.frame.sz);
-        writeCompact(pkt->data.frame.sz + 12 + 1, os);
+        writeCompact(pkt->data.frame.sz + 1, os);
         os->writeBytes(&keyframe, 1);
-        os->writeBytes(vp8->header, 12);
         os->writeBytes(pkt->data.frame.buf, pkt->data.frame.sz);
       }
     }
