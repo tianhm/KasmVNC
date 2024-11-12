@@ -52,7 +52,9 @@ RUN dnf install -y \
   libXrandr-devel \
   libXtst-devel \
   libXcursor-devel \
-  libSM-devel
+  libSM-devel \
+  libvpx-devel
+
 
 ENV SCRIPTS_DIR=/tmp/scripts
 COPY builder/scripts $SCRIPTS_DIR

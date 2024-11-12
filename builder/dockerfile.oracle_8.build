@@ -52,7 +52,8 @@ RUN dnf install -y \
   libXrandr-devel \
   libXtst-devel \
   libXcursor-devel \
-  libSM-devel
+  libSM-devel \
+  libvpx-devel
 
 ENV SCRIPTS_DIR=/tmp/scripts
 ENV PKG_CONFIG_PATH=/usr/local/lib64/pkgconfig:${PKG_CONFIG_PATH:-/opt/rh/gcc-toolset-14/root/usr/lib64/pkgconfig}

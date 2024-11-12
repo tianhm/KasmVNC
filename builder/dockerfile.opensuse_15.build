@@ -46,7 +46,8 @@ RUN zypper install -ny \
   xorg-x11-devel \
   xorg-x11-server-sdk \
   xorg-x11-util-devel \
-  zlib-devel
+  zlib-devel \
+  libvpx-devel
 
 RUN useradd -u 1000 docker && \
   groupadd -g 1000 docker && \
