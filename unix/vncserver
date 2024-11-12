@@ -2098,6 +2098,15 @@ sub DefineConfigToCLIConversion {
         ]
     }),
     KasmVNC::CliOption->new({
+        name => 'VideoBitRate',
+        configKeys => [
+          KasmVNC::ConfigKey->new({
+            name => "encoding.video_encoding_mode.bitrate",
+            type => KasmVNC::ConfigKey::INT
+          })
+        ]
+    }),
+    KasmVNC::CliOption->new({
         name => 'CompareFB',
         configKeys => [
           KasmVNC::ConfigKey->new({
