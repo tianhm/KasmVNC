@@ -22,10 +22,15 @@
 #include <stdint.h>
 #include <vector>
 
-struct vp8_t;
+struct hevc_t;
 
 namespace rfb {
 
+  // Kasm Video Encodings
+  const int kasmVideoVP8 = 0;  // VP8 encoding
+  const int kasmVideoHEVC = 1; // HEVC encoding
+  const int kasmVideoSkip = 2; // Skip frame
+  
   class KasmVideoEncoder : public Encoder {
   public:
     KasmVideoEncoder(SConnection* conn);
@@ -46,7 +51,7 @@ namespace rfb {
     bool init;
     uint32_t sw, sh;
 
-    vp8_t *vp8;
+    hevc_t *hevc;
   };
 }
 #endif

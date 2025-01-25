@@ -24,8 +24,11 @@
 #include <rfb/KasmVideoEncoder.h>
 #include <rfb/KasmVideoConstants.h>
 
-#include <vpx/vpx_encoder.h>
-#include <vpx/vp8cx.h>
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/hwcontext.h>
+#include <libavutil/pixdesc.h>
+#include <libswscale/swscale.h>
 
 #include <webp/encode.h>
 
@@ -35,24 +38,32 @@ static LogWriter vlog("KasmVideoEncoder");
 static const PixelFormat pfRGBX(32, 24, false, true, 255, 255, 255, 0, 8, 16);
 static const PixelFormat pfBGRX(32, 24, false, true, 255, 255, 255, 16, 8, 0);
 
-struct vp8_t {
-  vpx_codec_iface_t *cx;
-  vpx_image_t raw;
-  vpx_codec_enc_cfg_t cfg;
-  vpx_codec_ctx_t codec;
+struct hevc_t {
+  AVCodecContext *codecCtx;
+  AVBufferRef *hw_device_ctx;
+  AVFrame *hw_frame;
   uint32_t frame;
 };
 
 KasmVideoEncoder::KasmVideoEncoder(SConnection* conn) :
   Encoder(conn, encodingKasmVideo, (EncoderFlags)(EncoderUseNativePF | EncoderLossy), -1),
-  init(false), sw(0), sh(0), vp8(NULL)
+  init(false), sw(0), sh(0), hevc(NULL)
 {
-  vp8 = new vp8_t;
+  hevc = new hevc_t;
 }
 
 KasmVideoEncoder::~KasmVideoEncoder()
 {
-  delete vp8;
+  if (hevc->codecCtx) {
+    avcodec_free_context(&hevc->codecCtx);
+  }
+  if (hevc->hw_device_ctx) {
+    av_buffer_unref(&hevc->hw_device_ctx);
+  }
+  if (hevc->hw_frame) {
+    av_frame_free(&hevc->hw_frame);
+  }
+  delete hevc;
 }
 
 bool KasmVideoEncoder::isSupported()
@@ -60,34 +71,73 @@ bool KasmVideoEncoder::isSupported()
   return conn->cp.supportsEncoding(encodingKasmVideo);
 }
 
-static void init_vp8(vp8_t *vp8,
-                    const uint32_t w, const uint32_t h, const uint32_t fps,
-                    const uint32_t bitrate) {
-  vp8->cx = vpx_codec_vp8_cx();
-  if (!vpx_img_alloc(&vp8->raw, VPX_IMG_FMT_I420, w, h, 1))
-    vlog.error("Can't allocate vp8 img");
+static void init_hevc_vaapi(hevc_t *hevc, const uint32_t w, const uint32_t h, const uint32_t fps, const uint32_t bitrate) {
+  // Initialize VAAPI hardware context
+  int ret = av_hwdevice_ctx_create(&hevc->hw_device_ctx, AV_HWDEVICE_TYPE_VAAPI, nullptr, nullptr, 0);
+  if (ret < 0) {
+    vlog.error("Failed to create VAAPI hardware context");
+    return;
+  }
 
-  if (vpx_codec_enc_config_default(vp8->cx, &vp8->cfg, 0))
-    vlog.error("VP8 config");
+  // Find the HEVC VAAPI encoder
+  const AVCodec *codec = avcodec_find_encoder_by_name("hevc_vaapi");
+  if (!codec) {
+    vlog.error("HEVC VAAPI encoder not found");
+    return;
+  }
 
-  vp8->cfg.g_w = w;
-  vp8->cfg.g_h = h;
-  vp8->cfg.g_timebase.num = 1;
-  vp8->cfg.g_timebase.den = fps;
-  vp8->cfg.rc_target_bitrate = bitrate;
-  vp8->cfg.g_error_resilient = 0;
+  // Allocate codec context
+  hevc->codecCtx = avcodec_alloc_context3(codec);
+  if (!hevc->codecCtx) {
+    vlog.error("Failed to allocate codec context");
+    return;
+  }
 
-  vp8->cfg.g_lag_in_frames = 0; // realtime
+  // Set codec parameters
+  hevc->codecCtx->width = w;
+  hevc->codecCtx->height = h;
+  hevc->codecCtx->time_base = (AVRational){1, fps};
+  hevc->codecCtx->bit_rate = bitrate;
+  hevc->codecCtx->pix_fmt = AV_PIX_FMT_VAAPI;
+  hevc->codecCtx->hw_device_ctx = av_buffer_ref(hevc->hw_device_ctx);
 
-  if (vpx_codec_enc_init(&vp8->codec, vp8->cx, &vp8->cfg, 0))
-    vlog.error("VP8 init");
+  // Allocate hardware frames context
+  AVBufferRef *hw_frames_ctx = av_hwframe_ctx_alloc(hevc->hw_device_ctx);
+  AVHWFramesContext *frames_ctx = (AVHWFramesContext *)hw_frames_ctx->data;
+  frames_ctx->format = AV_PIX_FMT_VAAPI;
+  frames_ctx->sw_format = AV_PIX_FMT_NV12;
+  frames_ctx->width = w;
+  frames_ctx->height = h;
+  frames_ctx->initial_pool_size = 20;
+  av_hwframe_ctx_init(hw_frames_ctx);
+  hevc->codecCtx->hw_frames_ctx = av_buffer_ref(hw_frames_ctx);
 
-  vp8->frame = 0;
+  // Open the codec
+  if (avcodec_open2(hevc->codecCtx, codec, nullptr) < 0) {
+    vlog.error("Failed to open codec");
+    return;
+  }
+
+  // Allocate hardware frame
+  hevc->hw_frame = av_frame_alloc();
+  hevc->hw_frame->format = AV_PIX_FMT_VAAPI;
+  hevc->hw_frame->width = w;
+  hevc->hw_frame->height = h;
+  av_frame_get_buffer(hevc->hw_frame, 0);
+
+  hevc->frame = 0;
 }
 
-static void deinit_vp8(vp8_t *vp8) {
-  //vpx_img_free(&vp8->raw);
-  vpx_codec_destroy(&vp8->codec);
+static void deinit_hevc_vaapi(hevc_t *hevc) {
+  if (hevc->codecCtx) {
+    avcodec_free_context(&hevc->codecCtx);
+  }
+  if (hevc->hw_device_ctx) {
+    av_buffer_unref(&hevc->hw_device_ctx);
+  }
+  if (hevc->hw_frame) {
+    av_frame_free(&hevc->hw_frame);
+  }
 }
 
 void KasmVideoEncoder::writeRect(const PixelBuffer* pb, const Palette& palette)
@@ -121,48 +171,57 @@ void KasmVideoEncoder::writeRect(const PixelBuffer* pb, const Palette& palette)
 
   os = conn->getOutStream(conn->cp.supportsUdp);
 
-  if (!strcmp(Server::videoCodec, "vp8")) {
-    os->writeU8(kasmVideoVP8 << 4);
+  if (!strcmp(Server::videoCodec, "hevc")) {
+    os->writeU8(kasmVideoHEVC << 4);
 
     if (!init) {
-      init_vp8(vp8, pb->getRect().width(), pb->getRect().height(), Server::frameRate,
-              Server::videoBitrate);
+      init_hevc_vaapi(hevc, pb->getRect().width(), pb->getRect().height(), Server::frameRate, Server::videoBitrate);
       init = true;
       sw = pb->getRect().width();
       sh = pb->getRect().height();
     } else if (sw != (uint32_t) pb->getRect().width() || sh != (uint32_t) pb->getRect().height()) {
-      deinit_vp8(vp8);
-      init_vp8(vp8, pb->getRect().width(), pb->getRect().height(), Server::frameRate,
-              Server::videoBitrate);
+      deinit_hevc_vaapi(hevc);
+      init_hevc_vaapi(hevc, pb->getRect().width(), pb->getRect().height(), Server::frameRate, Server::videoBitrate);
       sw = pb->getRect().width();
       sh = pb->getRect().height();
     }
 
-    vp8->raw.planes[0] = pic.y;
-    vp8->raw.planes[1] = pic.u;
-    vp8->raw.planes[2] = pic.v;
+    // Convert YUV to VAAPI hardware frame
+    av_hwframe_get_buffer(hevc->codecCtx->hw_frames_ctx, hevc->hw_frame, 0);
+    hevc->hw_frame->data[0] = pic.y;
+    hevc->hw_frame->data[1] = pic.u;
+    hevc->hw_frame->data[2] = pic.v;
+    hevc->hw_frame->linesize[0] = pic.y_stride;
+    hevc->hw_frame->linesize[1] = pic.uv_stride;
 
-    vp8->raw.stride[0] = pic.y_stride;
-    vp8->raw.stride[1] = vp8->raw.stride[2] = pic.uv_stride;
+    // Encode the frame
+    AVPacket pkt;
+    av_init_packet(&pkt);
+    pkt.data = nullptr;
+    pkt.size = 0;
 
-    int flags = 0;
-    // VPX_EFLAG_FORCE_KF ?
-    // flush? raw NULL, frame -1
+    int ret = avcodec_send_frame(hevc->codecCtx, hevc->hw_frame);
+    if (ret < 0) {
+      vlog.error("Error sending frame to encoder");
+      return;
+    }
 
-    vpx_codec_iter_t iter = NULL;
-    const vpx_codec_cx_pkt_t *pkt = NULL;
-    const vpx_codec_err_t res =
-      vpx_codec_encode(&vp8->codec, &vp8->raw, vp8->frame++, 1, flags, VPX_DL_REALTIME);
-    if (res != VPX_CODEC_OK)
-      vlog.error("VP8 encoding error %u", res);
-
-    while ((pkt = vpx_codec_get_cx_data(&vp8->codec, &iter)) != NULL) {
-      if (pkt->kind == VPX_CODEC_CX_FRAME_PKT) {
-        const uint8_t keyframe = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) != 0;
-        writeCompact(pkt->data.frame.sz + 1, os);
-        os->writeBytes(&keyframe, 1);
-        os->writeBytes(pkt->data.frame.buf, pkt->data.frame.sz);
+    while (ret >= 0) {
+      ret = avcodec_receive_packet(hevc->codecCtx, &pkt);
+      if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+        break;
+      } else if (ret < 0) {
+        vlog.error("Error during encoding");
+        break;
       }
+
+      // Ensure the packet is formatted with NAL units for WebCodecs compatibility
+      const uint8_t keyframe = (pkt.flags & AV_PKT_FLAG_KEY) != 0;
+      writeCompact(pkt.size + 1, os);
+      os->writeBytes(&keyframe, 1);
+      os->writeBytes(pkt.data, pkt.size);
+
+      av_packet_unref(&pkt);
     }
   } else {
     vlog.error("Unknown videoCodec %s", (const char *) Server::videoCodec);
