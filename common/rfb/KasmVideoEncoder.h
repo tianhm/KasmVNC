@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include <vector>
 
-struct hevc_t;
+struct h264_t;
 
 namespace rfb {
 
@@ -46,7 +46,7 @@ namespace rfb {
     bool init;
     uint32_t sw, sh;
 
-    hevc_t *hevc;
+    h264_t *h264;
   };
 }
 #endif

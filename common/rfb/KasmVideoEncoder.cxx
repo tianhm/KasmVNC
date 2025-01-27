@@ -23,72 +23,100 @@
 #include <rfb/PixelBuffer.h>
 #include <rfb/KasmVideoEncoder.h>
 #include <rfb/KasmVideoConstants.h>
+extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
+#include <libavutil/hwcontext_vaapi.h>
+}
 using namespace rfb;
 static LogWriter vlog("KasmVideoEncoder");
 static const PixelFormat pfRGBX(32, 24, false, true, 255, 255, 255, 0, 8, 16);
 static const PixelFormat pfBGRX(32, 24, false, true, 255, 255, 255, 16, 8, 0);
-struct hevc_t {
+struct h264_t {
   AVCodecContext *ctx;
   AVFrame *frame;
   AVPacket pkt;
 };
 KasmVideoEncoder::KasmVideoEncoder(SConnection* conn) :
   Encoder(conn, encodingKasmVideo, (EncoderFlags)(EncoderUseNativePF | EncoderLossy), -1),
-  init(false), sw(0), sh(0), hevc(NULL)
+  init(false), sw(0), sh(0), h264(NULL)
 {
-  hevc = new hevc_t;
+  h264 = new h264_t;
 }
 KasmVideoEncoder::~KasmVideoEncoder()
 {
-  delete hevc;
+  delete h264;
 }
 bool KasmVideoEncoder::isSupported()
 {
   return conn->cp.supportsEncoding(encodingKasmVideo);
 }
-static void init_hevc(hevc_t *hevc,
+static void init_h264(h264_t *h264,
                     const uint32_t w, const uint32_t h, const uint32_t fps,
                     const uint32_t bitrate) {
-  hevc->ctx = avcodec_alloc_context3(avcodec_find_encoder(AV_CODEC_ID_HEVC));
-  if (!hevc->ctx) {
+  int err;
+  AVHWDeviceType devtype = AV_HWDEVICE_TYPE_VAAPI;
+  AVBufferRef *hw_device_ctx = NULL;
+
+  av_hwdevice_ctx_create(&hw_device_ctx, devtype, "/dev/dri/renderD128", 0, NULL);
+  if (!hw_device_ctx) {
+    vlog.error("Failed to create VAAPI device context");
+    return;
+  }
+
+  h264->ctx = avcodec_alloc_context3(avcodec_find_encoder_by_name("h264_vaapi"));
+  if (!h264->ctx) {
     vlog.error("Can't allocate AVCodecContext");
+    av_buffer_unref(&hw_device_ctx);
     return;
   }
-  hevc->frame = av_frame_alloc();
-  if (!hevc->frame) {
+
+  h264->ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+  if (!h264->ctx->hw_device_ctx) {
+    vlog.error("Failed to reference VAAPI device context");
+    avcodec_free_context(&h264->ctx);
+    av_buffer_unref(&hw_device_ctx);
+    return;
+  }
+
+  h264->frame = av_frame_alloc();
+  if (!h264->frame) {
     vlog.error("Can't allocate AVFrame");
-    avcodec_free_context(&hevc->ctx);
+    avcodec_free_context(&h264->ctx);
     return;
   }
-  hevc->frame->format = AV_PIX_FMT_YUV420P;
-  hevc->frame->width = w;
-  hevc->frame->height = h;
-  if (av_image_alloc(hevc->frame->data, hevc->frame->linesize, w, h, AV_PIX_FMT_YUV420P, 32) < 0) {
-    vlog.error("Can't allocate image");
-    avcodec_free_context(&hevc->ctx);
-    av_frame_free(&hevc->frame);
+
+  h264->frame->format = AV_PIX_FMT_VAAPI;
+  h264->frame->width = w;
+  h264->frame->height = h;
+  if (av_image_alloc(h264->frame->data, h264->frame->linesize, h264->frame->width, h264->frame->height, AV_PIX_FMT_NV12, 32) < 0) {
+    vlog.error("Failed to allocate image");
+    avcodec_free_context(&h264->ctx);
+    av_frame_free(&h264->frame);
     return;
   }
-  hevc->ctx->bit_rate = bitrate * 1000;
-  hevc->ctx->framerate = (AVRational){fps, 1};
-  hevc->ctx->time_base = (AVRational){1, fps};
-  hevc->ctx->gop_size = 10; // arbitrary
-  hevc->ctx->max_b_frames = 1;
-  hevc->ctx->pix_fmt = AV_PIX_FMT_YUV420P;
-  if (avcodec_open2(hevc->ctx, avcodec_find_encoder(AV_CODEC_ID_HEVC), nullptr) < 0) {
+
+  h264->ctx->width = w;
+  h264->ctx->height = h;
+  h264->ctx->time_base = (AVRational){1, fps};
+  h264->ctx->gop_size = 10;
+  h264->ctx->max_b_frames = 0;
+  h264->ctx->pix_fmt = AV_PIX_FMT_VAAPI;
+  if (avcodec_open2(h264->ctx, avcodec_find_encoder_by_name("h264_vaapi"), nullptr) < 0) {
     vlog.error("Failed to open codec");
-    avcodec_free_context(&hevc->ctx);
-    av_frame_free(&hevc->frame);
+    avcodec_free_context(&h264->ctx);
+    av_frame_free(&h264->frame);
     return;
   }
 }
-static void deinit_hevc(hevc_t *hevc) {
-  avcodec_free_context(&hevc->ctx);
-  av_frame_free(&hevc->frame);
+static void deinit_h264(h264_t *h264) {
+  if (h264->ctx && h264->ctx->hw_device_ctx) {
+    av_buffer_unref(&h264->ctx->hw_device_ctx);
+  }
+  avcodec_free_context(&h264->ctx);
+  av_frame_free(&h264->frame);
 }
 void KasmVideoEncoder::writeRect(const PixelBuffer* pb, const Palette& palette)
 {
@@ -102,38 +130,38 @@ void KasmVideoEncoder::writeRect(const PixelBuffer* pb, const Palette& palette)
     vlog.error("Can't allocate AVFrame");
     return;
   }
-  pFrame->format = AV_PIX_FMT_YUV420P;
-  pFrame->width = pb->getRect().width();
-  pFrame->height = pb->getRect().height();
+  pFrame->format = AV_PIX_FMT_VAAPI;
+  pFrame->width = pb->getRect().width(); // Use the width from the PixelBuffer
+  pFrame->height = pb->getRect().height(); // Use the height from the PixelBuffer
   if (av_image_fill_arrays(pFrame->data, pFrame->linesize, buffer, AV_PIX_FMT_BGR24, pb->getRect().width(), pb->getRect().height(), 1) < 0) {
     vlog.error("Can't fill image arrays");
     av_frame_free(&pFrame);
     return;
   }
   os = conn->getOutStream(conn->cp.supportsUdp);
-  if (!strcmp(Server::videoCodec, "hevc")) {
-    os->writeU8(kasmVideoHEVC << 4);
+  if (!strcmp(Server::videoCodec, "h264")) {
+    os->writeU8(kasmVideoH264 << 4);
     if (!init) {
-      init_hevc(hevc, pb->getRect().width(), pb->getRect().height(), Server::frameRate,
-              Server::videoBitrate);
+      init_h264(h264, pb->getRect().width(), pb->getRect().height(), Server::frameRate,
+                Server::videoBitrate);
       init = true;
       sw = pb->getRect().width();
       sh = pb->getRect().height();
     } else if (sw != (uint32_t) pb->getRect().width() || sh != (uint32_t) pb->getRect().height()) {
-      deinit_hevc(hevc);
-      init_hevc(hevc, pb->getRect().width(), pb->getRect().height(), Server::frameRate,
-              Server::videoBitrate);
+      deinit_h264(h264);
+      init_h264(h264, pb->getRect().width(), pb->getRect().height(), Server::frameRate,
+                Server::videoBitrate);
       sw = pb->getRect().width();
       sh = pb->getRect().height();
     }
-    int ret = avcodec_send_frame(hevc->ctx, pFrame);
+    int ret = avcodec_send_frame(h264->ctx, pFrame);
     if (ret < 0) {
       vlog.error("Error sending frame to codec");
       return;
     }
     while (ret >= 0) {
       AVPacket pkt;
-      ret = avcodec_receive_packet(hevc->ctx, &pkt);
+      ret = avcodec_receive_packet(h264->ctx, &pkt);
       if (ret < 0) {
         vlog.error("Error receiving packet from codec");
         break;
@@ -143,7 +171,7 @@ void KasmVideoEncoder::writeRect(const PixelBuffer* pb, const Palette& palette)
       av_packet_unref(&pkt);
     }
   } else {
-    vlog.error("Unknown videoCodec %s", (const char *) Server::videoCodec);
+    vlog.error("Unknown test videoCodec %s", (const char *) Server::videoCodec);
   }
   av_frame_free(&pFrame);
 }
