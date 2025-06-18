@@ -1,5 +1,5 @@
 set(RFB_SOURCES
-        benchmark.cxx
+        benchmark/benchmark.cxx
         Blacklist.cxx
         Congestion.cxx
         CConnection.cxx
@@ -25,7 +25,6 @@ set(RFB_SOURCES
         HextileEncoder.cxx
         JpegCompressor.cxx
         JpegDecompressor.cxx
-        KasmVideoEncoder.cxx
         KeyRemapper.cxx
         LogWriter.cxx
         Logger.cxx
@@ -70,6 +69,11 @@ set(RFB_SOURCES
         util.cxx
         xxhash.c
         ffmpeg.cxx
+        encoders/H264SoftwareEncoder.cxx
+        benchmark/FfmpegFrameFeeder.cpp
+        encoders/H264VAAPIEncoder.cxx
+        encoders/VideoEncoderFactory.cxx
+        encoders/EncoderProbe.cpp
 )
 
 if (UNIX)
