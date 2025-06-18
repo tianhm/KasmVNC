@@ -71,11 +71,13 @@
 
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <filesystem>
+#include <string_view>
 #include <sys/inotify.h>
 #include <unistd.h>
 #include <wordexp.h>
-#include <filesystem>
-#include <string_view>
+
+#include "KasmVideoConstants.h"
 
 using namespace rfb;
 
@@ -237,13 +239,16 @@ VNCServerST::VNCServerST(const char* name_, SDesktop* desktop_)
     if (watermarkData)
         sendWatermark = true;
 
+    if (VideoEncoders::to_string(VideoEncoders::Codecs::H264) != Server::videoCodec.getValueStr())
+        throw std::invalid_argument(std::format("Unknown test videoCodec {}", Server::videoCodec.getValueStr()));
+
     if (Server::selfBench)
         SelfBench();
 
     if (Server::benchmark[0]) {
         auto *file_name = Server::benchmark.getValueStr();
         if (!std::filesystem::exists(file_name))
-            throw Exception("Benchmarking video file does not exist");
+            throw std::invalid_argument("Benchmarking video file does not exist");
         benchmark(file_name, Server::benchmarkResults.getValueStr());
     }
 }
