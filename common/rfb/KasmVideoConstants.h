@@ -15,12 +15,46 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
  * USA.
  */
-#ifndef __RFB_KASMVIDEOCONSTANTS_H__
-#define __RFB_KASMVIDEOCONSTANTS_H__
-namespace rfb {
-  // Compression control
-  const unsigned int kasmVideoH264 = 0x01; // H.264 encoding
-  const unsigned int kasmVideoSkip = 0x00; // Skip frame
+#pragma once
 
-}
-#endif
+#include <string_view>
+#include <array>
+#include <fcntl.h>
+
+namespace rfb {
+    // Compression control
+    static constexpr unsigned int kasmVideoH264 = 0x01; // H.264 encoding
+    static constexpr unsigned int kasmVideoSkip = 0x00; // Skip frame
+
+    static constexpr int GroupOfPictureSize = 10; // interval between I-frames
+
+    static auto render_path = "/dev/dri/renderD128";
+
+    inline bool is_acceleration_available() {
+        if (access(render_path, R_OK | W_OK) != 0)
+            return false;
+
+        const int fd = open(render_path, O_RDWR);
+        if (fd < 0)
+            return false;
+
+        close(fd);
+
+        return true;
+    }
+
+    inline static bool hw_accel = is_acceleration_available();
+
+    struct VideoEncoders {
+        enum class Codecs : uint8_t
+        {
+            H264
+        };
+
+        static inline std::array<std::string_view, 1> CodecNames = {"h264"};
+
+        static std::string_view to_string(Codecs codec) {
+            return CodecNames[static_cast<uint8_t>(codec)];
+        }
+    };
+} // namespace rfb
