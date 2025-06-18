@@ -352,7 +352,7 @@ void report(std::vector<uint64_t> &totals, std::vector<uint64_t> &timings,
 void benchmark(std::string_view path, const std::string_view results_file) {
     try {
         vlog.info("Benchmarking with video file %s", path.data());
-        FFmpegFrameFeeder frame_feeder{};
+        FfmpegFrameFeeder frame_feeder{&FFmpeg::get()};
         frame_feeder.open(path);
 
         static const rfb::PixelFormat pf{32, 24, false, true, 0xFF, 0xFF, 0xFF, 0, 8, 16};
