@@ -21,21 +21,20 @@
 #include "benchmark.h"
 #include <algorithm>
 #include <cassert>
-#include <numeric>
-#include "rfb/LogWriter.h"
-#include <string_view>
-#include <tinyxml2.h>
 #include <cmath>
-#include <rfb/ServerCore.h>
+#include <numeric>
+#include <rdr/BufferedInStream.h>
+#include <rdr/OutStream.h>
 #include <rfb/EncCache.h>
 #include <rfb/EncodeManager.h>
 #include <rfb/SConnection.h>
 #include <rfb/SMsgWriter.h>
 #include <rfb/UpdateTracker.h>
 #include <rfb/screenTypes.h>
-#include <rdr/BufferedInStream.h>
-#include <rdr/OutStream.h>
-#include "FFmpegFrameFeeder.h>
+#include <string_view>
+#include <tinyxml2.h>
+#include "FfmpegFrameFeeder.h"
+#include "rfb/LogWriter.h"
 
 namespace benchmarking {
     class MockBufferStream final : public rdr::BufferedInStream {
@@ -260,10 +259,10 @@ namespace benchmarking {
         rfb::SimpleUpdateTracker updates;
         MockSConnection sc;
     };
-}
+} // namespace benchmarking
 
 void report(std::vector<uint64_t> &totals, std::vector<uint64_t> &timings,
-            std::vector<benchmarking::MockCConnection::stats_t> &stats, const std::string_view results_file) {
+            const std::vector<benchmarking::MockCConnection::stats_t> &stats, const std::string_view results_file) {
     auto totals_sum = std::accumulate(totals.begin(), totals.end(), 0.);
     auto totals_avg = totals_sum / static_cast<double>(totals.size());
 
@@ -356,7 +355,7 @@ void benchmark(std::string_view path, const std::string_view results_file) {
         frame_feeder.open(path);
 
         static const rfb::PixelFormat pf{32, 24, false, true, 0xFF, 0xFF, 0xFF, 0, 8, 16};
-        std::vector<rdr::S32> encodings{
+        const std::vector<rdr::S32> encodings{
             std::begin(benchmarking::default_encodings), std::end(benchmarking::default_encodings)
         };
 
