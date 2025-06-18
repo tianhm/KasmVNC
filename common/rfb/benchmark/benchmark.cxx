@@ -19,25 +19,23 @@
  */
 
 #include "benchmark.h"
-#include <string_view>
-#include <rfb/LogWriter.h>
-#include <numeric>
-#include <tinyxml2.h>
 #include <algorithm>
 #include <cassert>
-
-#include "ServerCore.h"
+#include <numeric>
+#include "rfb/LogWriter.h"
+#include <string_view>
+#include <tinyxml2.h>
 #include <cmath>
-
-#include "EncCache.h"
-#include "EncodeManager.h"
-#include "SConnection.h"
-#include "screenTypes.h"
-#include "SMsgWriter.h"
-#include "UpdateTracker.h"
-#include "rdr/BufferedInStream.h"
-#include "rdr/OutStream.h"
-#include "ffmpeg.h"
+#include <rfb/ServerCore.h>
+#include <rfb/EncCache.h>
+#include <rfb/EncodeManager.h>
+#include <rfb/SConnection.h>
+#include <rfb/SMsgWriter.h>
+#include <rfb/UpdateTracker.h>
+#include <rfb/screenTypes.h>
+#include <rdr/BufferedInStream.h>
+#include <rdr/OutStream.h>
+#include "FFmpegFrameFeeder.h>
 
 namespace benchmarking {
     class MockBufferStream final : public rdr::BufferedInStream {

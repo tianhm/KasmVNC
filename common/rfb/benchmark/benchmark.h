@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include "CConnection.h"
-#include "CMsgReader.h"
-#include "LogWriter.h"
+#include <rfb/CConnection.h>
+#include <rfb/CMsgReader.h>
+#include <rfb/LogWriter.h>
 
 extern "C" {
 #include <libavutil/frame.h>
