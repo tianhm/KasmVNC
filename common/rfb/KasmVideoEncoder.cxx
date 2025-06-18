@@ -15,7 +15,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
  * USA.
  */
-#include <fcntl.h>
+
 #include <unistd.h>
 #include <rdr/OutStream.h>
 #include <rfb/encodings.h>
@@ -34,22 +34,7 @@ extern "C" {
 #include <libavutil/hwcontext_vaapi.h>
 }
 
-static const char *render_path = "/dev/dri/renderD128";
 
-bool is_acceleration_available() {
-    if (access(render_path, R_OK | W_OK) != 0)
-        return false;
-
-    const int fd = open(render_path, O_RDWR);
-    if (fd < 0)
-        return false;
-
-    close(fd);
-
-    return true;
-}
-
-inline static bool hw_accel = is_acceleration_available();
 
 using namespace rfb;
 static LogWriter vlog("KasmVideoEncoder");
@@ -184,15 +169,7 @@ void KasmVideoEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) 
         vlog.error("Can't allocate AVFrame");
         return;
     }
-    pFrame->format = hw_accel ? AV_PIX_FMT_VAAPI : AV_PIX_FMT_YUV420P;
-    pFrame->width = pb->getRect().width(); // Use the width from the PixelBuffer
-    pFrame->height = pb->getRect().height(); // Use the height from the PixelBuffer
-    if (av_image_fill_arrays(pFrame->data, pFrame->linesize, buffer, AV_PIX_FMT_BGR24, pb->getRect().width(),
-                             pb->getRect().height(), 1) < 0) {
-        vlog.error("Can't fill image arrays");
-        av_frame_free(&pFrame);
-        return;
-    }
+
     rdr::OutStream *os = conn->getOutStream(conn->cp.supportsUdp);
     if (!strcmp(Server::videoCodec, "h264")) {
         os->writeU8(kasmVideoH264 << 4);
@@ -209,6 +186,15 @@ void KasmVideoEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) 
                       Server::videoBitrate);
             sw = pb->getRect().width();
             sh = pb->getRect().height();
+        }
+        pFrame->format = hw_accel ? AV_PIX_FMT_VAAPI : AV_PIX_FMT_YUV420P;
+        pFrame->width = pb->getRect().width(); // Use the width from the PixelBuffer
+        pFrame->height = pb->getRect().height(); // Use the height from the PixelBuffer
+        if (av_image_fill_arrays(pFrame->data, pFrame->linesize, buffer, AV_PIX_FMT_BGR24, pb->getRect().width(),
+                                 pb->getRect().height(), 1) < 0) {
+            vlog.error("Can't fill image arrays");
+            av_frame_free(&pFrame);
+            return;
         }
         int ret = avcodec_send_frame(h264.ctx, pFrame);
         if (ret < 0) {
@@ -233,7 +219,7 @@ void KasmVideoEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) 
 }
 
 void KasmVideoEncoder::writeSkipRect() {
-    rdr::OutStream *os = conn->getOutStream(conn->cp.supportsUdp);
+    auto *os = conn->getOutStream(conn->cp.supportsUdp);
     os->writeU8(kasmVideoSkip << 4);
 }
 
