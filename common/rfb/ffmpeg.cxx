@@ -1,5 +1,5 @@
 /* Copyright (C) 2025 Kasm Technologies Corp
-*
+ *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -18,14 +18,14 @@
 
 #include "ffmpeg.h"
 #include <array>
-#include <string_view>
 #include <filesystem>
+#include "LogWriter.h"
 
-FFmpegFrameFeeder::FFmpegFrameFeeder() {
-    static constexpr std::array<std::string_view, 2> paths = {
-        "/usr/lib/",
-        "/usr/lib64"
-    };
+static rfb::LogWriter vlog("ffmpeg");
+
+FFmpeg::FFmpeg() {
+
+    static constexpr std::array<std::string_view, 2> paths = {"/usr/lib/", "/usr/lib64"};
 
     namespace fs = std::filesystem;
     using namespace std::string_literals;
@@ -76,6 +76,17 @@ FFmpegFrameFeeder::FFmpegFrameFeeder() {
     av_frame_free_f = D_LOOKUP_SYM(handle, av_frame_free);
     av_frame_alloc_f = D_LOOKUP_SYM(handle, av_frame_alloc);
     av_frame_get_buffer_f = D_LOOKUP_SYM(handle, av_frame_get_buffer);
+    av_opt_set_f = D_LOOKUP_SYM(handle, av_opt_set);
+    av_buffer_unref_f = D_LOOKUP_SYM(handle, av_buffer_unref);
+    av_hwdevice_ctx_create_f = D_LOOKUP_SYM(handle, av_hwdevice_ctx_create);
+    av_hwframe_ctx_alloc_f = D_LOOKUP_SYM(handle, av_hwframe_ctx_alloc);
+    av_hwframe_ctx_init_f = D_LOOKUP_SYM(handle, av_hwframe_ctx_init);
+    av_buffer_ref_f = D_LOOKUP_SYM(handle, av_buffer_ref);
+    av_hwframe_get_buffer_f = D_LOOKUP_SYM(handle, av_hwframe_get_buffer);
+    av_hwframe_transfer_data_f = D_LOOKUP_SYM(handle, av_hwframe_transfer_data);
+    av_strerror_f = D_LOOKUP_SYM(handle, av_strerror);
+    av_log_set_level_f = D_LOOKUP_SYM(handle, av_log_set_level);
+    av_log_set_callback_f = D_LOOKUP_SYM(handle, av_log_set_callback);
 
     vlog.info("libavutil.so loaded");
 
@@ -91,120 +102,29 @@ FFmpegFrameFeeder::FFmpegFrameFeeder() {
     libavcodec = load_lib("libavcodec.so");
     handle = libavcodec.get();
 
+    avcodec_free_context_f = D_LOOKUP_SYM(handle, avcodec_free_context);
     avcodec_open2_f = D_LOOKUP_SYM(handle, avcodec_open2);
+    avcodec_find_encoder_f = D_LOOKUP_SYM(handle, avcodec_find_encoder);
+    avcodec_find_encoder_by_name_f = D_LOOKUP_SYM(handle, avcodec_find_encoder_by_name);
     avcodec_alloc_context3_f = D_LOOKUP_SYM(handle, avcodec_alloc_context3);
+    avcodec_send_frame_f = D_LOOKUP_SYM(handle, avcodec_send_frame);
     avcodec_send_packet_f = D_LOOKUP_SYM(handle, avcodec_send_packet);
     avcodec_receive_frame_f = D_LOOKUP_SYM(handle, avcodec_receive_frame);
+    avcodec_receive_packet_f = D_LOOKUP_SYM(handle, avcodec_receive_packet);
     av_packet_unref_f = D_LOOKUP_SYM(handle, av_packet_unref);
     avcodec_flush_buffers_f = D_LOOKUP_SYM(handle, avcodec_flush_buffers);
     avcodec_close_f = D_LOOKUP_SYM(handle, avcodec_close);
     av_packet_alloc_f = D_LOOKUP_SYM(handle, av_packet_alloc);
     av_packet_free_f = D_LOOKUP_SYM(handle, av_packet_free);
+
+    av_log_set_level_f(AV_LOG_VERBOSE); // control what is emitted
+    av_log_set_callback_f(av_log_callback);
 }
+void FFmpeg::av_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
+    if (level > AV_LOG_VERBOSE)
+        return;
 
-FFmpegFrameFeeder::~FFmpegFrameFeeder() {
-    avformat_close_input_f(&format_ctx);
-    avcodec_close_f(codec_ctx);
-    avcodec_free_context_f(&codec_ctx);
-}
-
-void FFmpegFrameFeeder::open(const std::string_view path) {
-    if (avformat_open_input_f(&format_ctx, path.data(), nullptr, nullptr) < 0)
-        throw std::runtime_error("Could not open video file");
-
-    // Find stream info
-    if (avformat_find_stream_info_f(format_ctx, nullptr) < 0)
-        throw std::runtime_error("Could not find stream info");
-
-    // Find video stream
-    for (uint32_t i = 0; i < format_ctx->nb_streams; ++i) {
-        if (format_ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-            video_stream_idx = static_cast<int>(i);
-            break;
-        }
-    }
-
-    if (video_stream_idx == -1)
-        throw std::runtime_error("No video stream found");
-
-    // Get codec parameters and decoder
-    const auto *codec_parameters = format_ctx->streams[video_stream_idx]->codecpar;
-    const auto *codec = avcodec_find_decoder_f(codec_parameters->codec_id);
-    if (!codec)
-        throw std::runtime_error("Codec not found");
-
-    codec_ctx = avcodec_alloc_context3_f(codec);
-    if (!codec_ctx || avcodec_parameters_to_context_f(codec_ctx, codec_parameters) < 0)
-        throw std::runtime_error("Failed to set up codec context");
-
-    if (avcodec_open2_f(codec_ctx, codec, nullptr) < 0)
-        throw std::runtime_error("Could not open codec");
-}
-
-FFmpegFrameFeeder::play_stats_t FFmpegFrameFeeder::play(benchmarking::MockTestConnection *connection) const {
-    // Allocate frame and packet
-    const FrameGuard frame{av_frame_alloc_f()};
-    const PacketGuard packet{av_packet_alloc_f()};
-
-    if (!frame || !packet)
-        throw std::runtime_error("Could not allocate frame or packet");
-
-    // Scaling context to convert to RGB24
-    SwsContext *sws_ctx = sws_getContext_f(
-        codec_ctx->width, codec_ctx->height, codec_ctx->pix_fmt,
-        codec_ctx->width, codec_ctx->height, AV_PIX_FMT_RGB24,
-        SWS_BILINEAR, nullptr, nullptr, nullptr
-    );
-    if (!sws_ctx)
-        throw std::runtime_error("Could not create scaling context");
-
-    const std::unique_ptr<SwsContext, void(*)(SwsContext *)> sws_ctx_guard{sws_ctx, sws_freeContext_f};
-
-    const FrameGuard rgb_frame{av_frame_alloc_f()};
-    if (!rgb_frame)
-        throw std::runtime_error("Could not allocate frame");
-
-    rgb_frame->format = AV_PIX_FMT_RGB24;
-    rgb_frame->width = codec_ctx->width;
-    rgb_frame->height = codec_ctx->height;
-
-    if (av_frame_get_buffer_f(rgb_frame.get(), 0) != 0)
-        throw std::runtime_error("Could not allocate frame data");
-
-    play_stats_t stats{};
-    const auto total_frame_count = get_total_frame_count();
-    stats.timings.reserve(total_frame_count > 0 ? total_frame_count : 2048);
-
-    while (av_read_frame_f(format_ctx, packet.get()) == 0) {
-        if (packet->stream_index == video_stream_idx) {
-            if (avcodec_send_packet_f(codec_ctx, packet.get()) == 0) {
-                while (avcodec_receive_frame_f(codec_ctx, frame.get()) == 0) {
-                    // Convert to RGB
-                    sws_scale_f(sws_ctx_guard.get(), frame->data, frame->linesize, 0,
-                                frame->height,
-                                rgb_frame->data, rgb_frame->linesize);
-
-                    connection->framebufferUpdateStart();
-                    connection->setNewFrame(rgb_frame.get());
-                    using namespace std::chrono;
-
-                    auto now = high_resolution_clock::now();
-                    connection->framebufferUpdateEnd();
-                    const auto duration = duration_cast<milliseconds>(high_resolution_clock::now() - now).count();
-
-                    //vlog.info("Frame took %lu ms", duration);
-                    stats.total += duration;
-                    stats.timings.push_back(duration);
-                }
-            }
-        }
-        av_packet_unref_f(packet.get());
-    }
-
-    if (av_seek_frame_f(format_ctx, video_stream_idx, 0, AVSEEK_FLAG_BACKWARD) < 0)
-        throw std::runtime_error("Could not seek to start of video");
-
-    avcodec_flush_buffers_f(codec_ctx);
-
-    return stats;
+    char buffer[1024];
+    vsnprintf(buffer, sizeof(buffer), fmt, vl);
+    vlog.info("[FFmpeg Debug] %s", buffer);
 }
