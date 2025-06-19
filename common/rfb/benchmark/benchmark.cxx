@@ -96,37 +96,29 @@ namespace benchmarking {
             }
         }
 
-        void setDesktopSize(int fb_width, int fb_height,
-                            const rfb::ScreenSet &layout) override {
+        void setDesktopSize(int fb_width, int fb_height, const rfb::ScreenSet &layout) override {
             cp.width = fb_width;
             cp.height = fb_height;
             cp.screenLayout = layout;
 
-            writer()->writeExtendedDesktopSize(rfb::reasonServer, 0, cp.width, cp.height,
-                                               cp.screenLayout);
+            writer()->writeExtendedDesktopSize(rfb::reasonServer, 0, cp.width, cp.height, cp.screenLayout);
         }
 
-        void sendStats(const bool toClient) override {
-        }
+        void sendStats(const bool toClient) override {}
 
         [[nodiscard]] bool canChangeKasmSettings() const override {
             return true;
         }
 
-        void udpUpgrade(const char *resp) override {
-        }
+        void udpUpgrade(const char *resp) override {}
 
-        void udpDowngrade(const bool) override {
-        }
+        void udpDowngrade(const bool) override {}
 
-        void subscribeUnixRelay(const char *name) override {
-        }
+        void subscribeUnixRelay(const char *name) override {}
 
-        void unixRelay(const char *name, const rdr::U8 *buf, const unsigned len) override {
-        }
+        void unixRelay(const char *name, const rdr::U8 *buf, const unsigned len) override {}
 
-        void handleFrameStats(rdr::U32 all, rdr::U32 render) override {
-        }
+        void handleFrameStats(rdr::U32 all, rdr::U32 render) override {}
 
         [[nodiscard]] auto getJpegStats() const {
             return manager.jpegstats;
@@ -136,8 +128,12 @@ namespace benchmarking {
             return manager.webpstats;
         }
 
-        [[nodiscard]] auto bytes() { return out.length(); }
-        [[nodiscard]] auto udp_bytes() { return udps.length(); }
+        [[nodiscard]] auto bytes() {
+            return out.length();
+        }
+        [[nodiscard]] auto udp_bytes() {
+            return udps.length();
+        }
 
     protected:
         MockStream out{};
@@ -170,8 +166,7 @@ namespace benchmarking {
         }
 
         void setCursor(int width, int height, const rfb::Point &hotspot, const rdr::U8 *data,
-                       const bool resizing) override {
-        }
+                       const bool resizing) override {}
 
         ~MockCConnection() override = default;
 
@@ -238,20 +233,15 @@ namespace benchmarking {
             sc.writeUpdate(ui, pb);
         }
 
-        void dataRect(const rfb::Rect &r, int encoding) override {
-        }
+        void dataRect(const rfb::Rect &r, int encoding) override {}
 
-        void setColourMapEntries(int, int, rdr::U16 *) override {
-        }
+        void setColourMapEntries(int, int, rdr::U16 *) override {}
 
-        void bell() override {
-        }
+        void bell() override {}
 
-        void serverCutText(const char *, rdr::U32) override {
-        }
+        void serverCutText(const char *, rdr::U32) override {}
 
-        void serverCutText(const char *str) override {
-        }
+        void serverCutText(const char *str) override {}
 
     protected:
         MockBufferStream in;
