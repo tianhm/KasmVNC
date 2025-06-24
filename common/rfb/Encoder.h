@@ -89,7 +89,7 @@ namespace rfb {
 
   public:
     const int encoding;
-    const enum EncoderFlags flags;
+    const EncoderFlags flags;
 
     // Maximum size of the palette per rect
     const unsigned int maxPaletteSize;
