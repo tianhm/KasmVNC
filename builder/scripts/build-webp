@@ -21,8 +21,18 @@ prepare_source() {
 
 build_and_install() {
   export MAKEFLAGS=-j$(nproc)
-  ./configure --enable-static --disable-shared --enable-threading --enable-sse2 --enable-neon
-  make
+  CONFIG_FLAGS=" --enable-static --disable-shared --enable-threading"
+  ARCH=$(arch)
+
+  if [ "$ARCH" = "x86_64" ]; then
+    CONFIG_FLAGS="$CONFIG_FLAGS --enable-sse2"
+  elif [ "$ARCH" = "aarch64" ]; then
+    CONFIG_FLAGS="$CONFIG_FLAGS --enable-neon"
+  else
+    echo "Unsupported architecture: $ARCH" && exit 1;
+  fi
+
+  ./configure "$(CONFIG_FLAGS)"
   make install
 }
 
