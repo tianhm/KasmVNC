@@ -6,7 +6,7 @@
 #include <vector>
 
 extern "C" {
-#include <libavcodec/codec.h>
+#include <libavcodec/avcodec.h>
 #include <libavutil/hwcontext.h>
 }
 #include "rfb/ffmpeg.h"
