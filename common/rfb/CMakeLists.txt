@@ -161,7 +161,13 @@ target_include_directories(rfb PRIVATE
         ${CPUID_INCLUDE_DIRS}
 )
 
-target_link_libraries(rfb PUBLIC ${RFB_LIBRARIES} tinyxml2_objs ${TBB_LIBRARIES} ${FFMPEG_LIBRARIES} ${CPUID_LIBRARIES} ${FMT_LIBRARIES})
+set(RFB_LIBRARIES ${RFB_LIBRARIES} tinyxml2_objs ${TBB_LIBRARIES} ${CPUID_LIBRARIES} ${FMT_LIBRARIES})
+
+if (DEBUG_FFMPEG)
+    set(RFB_LIBRARIES ${RFB_LIBRARIES} ${FFMPEG_LIBRARIES})
+endif ()
+
+target_link_libraries(rfb PUBLIC ${RFB_LIBRARIES})
 
 if (UNIX)
     libtool_create_control_file(rfb)
