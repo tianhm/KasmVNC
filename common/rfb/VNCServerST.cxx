@@ -240,7 +240,7 @@ VNCServerST::VNCServerST(const char* name_, SDesktop* desktop_)
     if (watermarkData)
         sendWatermark = true;
 
-    if (SupportedVideoEncoders::to_string(SupportedVideoEncoders::Codecs::H264) != Server::videoCodec.getValueStr())
+    if (Server::videoCodec[0] && SupportedVideoEncoders::to_string(SupportedVideoEncoders::Codecs::H264) != Server::videoCodec.getValueStr())
         throw std::invalid_argument(fmt::format("Unknown test videoCodec {}", Server::videoCodec.getValueStr()));
 
     if (Server::selfBench)
