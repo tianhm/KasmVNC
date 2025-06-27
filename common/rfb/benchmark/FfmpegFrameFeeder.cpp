@@ -24,14 +24,14 @@
 FfmpegFrameFeeder::FfmpegFrameFeeder(FFmpeg *ffmpeg_) : ffmpeg{ffmpeg_} {}
 
 FfmpegFrameFeeder::~FfmpegFrameFeeder() {
-    ffmpeg->avformat_close_input(&format_ctx);
-    ffmpeg->avcodec_close(codec_ctx);
-    ffmpeg->avcodec_free_context(&codec_ctx);
+    ffmpeg->avcodec_close(codec_ctx_guard.get());
 }
 
 void FfmpegFrameFeeder::open(const std::string_view path) {
+    AVFormatContext *format_ctx{};
     if (ffmpeg->avformat_open_input(&format_ctx, path.data(), nullptr, nullptr) < 0)
         throw std::runtime_error("Could not open video file");
+    format_ctx_guard.reset(format_ctx);
 
     // Find stream info
     if (ffmpeg->avformat_find_stream_info(format_ctx, nullptr) < 0)
@@ -54,9 +54,10 @@ void FfmpegFrameFeeder::open(const std::string_view path) {
     if (!codec)
         throw std::runtime_error("Codec not found");
 
-    codec_ctx = ffmpeg->avcodec_alloc_context3(codec);
+    auto *codec_ctx = ffmpeg->avcodec_alloc_context3(codec);
     if (!codec_ctx || ffmpeg->avcodec_parameters_to_context(codec_ctx, codec_parameters) < 0)
         throw std::runtime_error("Failed to set up codec context");
+    codec_ctx_guard.reset(codec_ctx);
 
     if (ffmpeg->avcodec_open2(codec_ctx, codec, nullptr) < 0)
         throw std::runtime_error("Could not open codec");
@@ -71,9 +72,16 @@ FfmpegFrameFeeder::play_stats_t FfmpegFrameFeeder::play(benchmarking::MockTestCo
         throw std::runtime_error("Could not allocate frame or packet");
 
     // Scaling context to convert to RGB24
-    auto *sws_ctx =
-            ffmpeg->sws_getContext(codec_ctx->width, codec_ctx->height, codec_ctx->pix_fmt, codec_ctx->width,
-                                   codec_ctx->height, AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
+    auto *sws_ctx = ffmpeg->sws_getContext(codec_ctx_guard->width,
+                                           codec_ctx_guard->height,
+                                           codec_ctx_guard->pix_fmt,
+                                           codec_ctx_guard->width,
+                                           codec_ctx_guard->height,
+                                           AV_PIX_FMT_RGB24,
+                                           SWS_BILINEAR,
+                                           nullptr,
+                                           nullptr,
+                                           nullptr);
     if (!sws_ctx)
         throw std::runtime_error("Could not create scaling context");
 
@@ -84,8 +92,8 @@ FfmpegFrameFeeder::play_stats_t FfmpegFrameFeeder::play(benchmarking::MockTestCo
         throw std::runtime_error("Could not allocate frame");
 
     rgb_frame->format = AV_PIX_FMT_RGB24;
-    rgb_frame->width = codec_ctx->width;
-    rgb_frame->height = codec_ctx->height;
+    rgb_frame->width = codec_ctx_guard->width;
+    rgb_frame->height = codec_ctx_guard->height;
 
     if (ffmpeg->av_frame_get_buffer(rgb_frame.get(), 0) != 0)
         throw std::runtime_error("Could not allocate frame data");
@@ -94,13 +102,16 @@ FfmpegFrameFeeder::play_stats_t FfmpegFrameFeeder::play(benchmarking::MockTestCo
     const auto total_frame_count = get_total_frame_count();
     stats.timings.reserve(total_frame_count > 0 ? total_frame_count : 2048);
 
-    while (ffmpeg->av_read_frame(format_ctx, packet.get()) == 0) {
+    auto *codec_ctx = codec_ctx_guard.get();
+
+    while (ffmpeg->av_read_frame(format_ctx_guard.get(), packet.get()) == 0) {
         if (packet->stream_index == video_stream_idx) {
+
             if (ffmpeg->avcodec_send_packet(codec_ctx, packet.get()) == 0) {
                 while (ffmpeg->avcodec_receive_frame(codec_ctx, frame.get()) == 0) {
                     // Convert to RGB
-                    ffmpeg->sws_scale(sws_ctx_guard.get(), frame->data, frame->linesize, 0, frame->height,
-                                      rgb_frame->data, rgb_frame->linesize);
+                    ffmpeg->sws_scale(
+                            sws_ctx_guard.get(), frame->data, frame->linesize, 0, frame->height, rgb_frame->data, rgb_frame->linesize);
 
                     connection->framebufferUpdateStart();
                     connection->setNewFrame(rgb_frame.get());
@@ -119,7 +130,7 @@ FfmpegFrameFeeder::play_stats_t FfmpegFrameFeeder::play(benchmarking::MockTestCo
         ffmpeg->av_packet_unref(packet.get());
     }
 
-    if (ffmpeg->av_seek_frame(format_ctx, video_stream_idx, 0, AVSEEK_FLAG_BACKWARD) < 0)
+    if (ffmpeg->av_seek_frame(format_ctx_guard.get(), video_stream_idx, 0, AVSEEK_FLAG_BACKWARD) < 0)
         throw std::runtime_error("Could not seek to start of video");
 
     ffmpeg->avcodec_flush_buffers(codec_ctx);

@@ -62,6 +62,12 @@ class FFmpeg final {
         }
     };
 
+    struct AVFormatContextDeleter {
+        void operator()(AVFormatContext *ctx) const {
+            avformat_close_input(&ctx);
+        }
+    };
+
     struct SwsContextDeleter {
         void operator()(SwsContext *ctx) const {
             sws_freeContext(ctx);
@@ -135,7 +141,7 @@ class FFmpeg final {
     using DlHandlerGuard = std::unique_ptr<void, DlHandler>;
 
     // libavformat
-    avformat_close_input_func avformat_close_input_f{};
+    static inline avformat_close_input_func avformat_close_input_f{};
     avformat_open_input_func avformat_open_input_f{};
     avformat_find_stream_info_func avformat_find_stream_info_f{};
     av_read_frame_func av_read_frame_f{};
@@ -196,7 +202,7 @@ public:
         return instance;
     }
 
-    void avformat_close_input(AVFormatContext **s) const {
+    static void avformat_close_input(AVFormatContext **s) {
         avformat_close_input_f(s);
     }
 
@@ -334,13 +340,18 @@ public:
         av_packet_unref_f(pkt);
     }
 
-    void avcodec_flush_buffers(AVCodecContext *avctx) const { avcodec_flush_buffers_f(avctx); }
+    void avcodec_flush_buffers(AVCodecContext *avctx) const {
+        avcodec_flush_buffers_f(avctx);
+    }
 
-    int avcodec_close(AVCodecContext *avctx) const { return avcodec_close_f(avctx); }
+    int avcodec_close(AVCodecContext *avctx) const {
+        return avcodec_close_f(avctx);
+    }
 
     DEFINE_GUARD(Frame, AVFrame)
     DEFINE_GUARD(Packet, AVPacket)
     DEFINE_GUARD(Context, AVCodecContext)
+    DEFINE_GUARD(FormatCtx, AVFormatContext)
     DEFINE_GUARD(SwsContext, SwsContext)
     DEFINE_GUARD(Buffer, AVBufferRef);
 
