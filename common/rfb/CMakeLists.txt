@@ -136,7 +136,6 @@ endif ()
 
 find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(FFMPEG REQUIRED libavcodec libavformat libavutil libswscale libva)
 pkg_check_modules(CPUID REQUIRED libcpuid)
 pkg_check_modules(FMT REQUIRED fmt)
 
