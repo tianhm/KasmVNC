@@ -2,8 +2,8 @@
 
 #include "rdr/OutStream.h"
 #include "rfb/Encoder.h"
-#include "rfb/encoders/VideoEncoder.h"
 #include "rfb/SConnection.h"
+#include "rfb/encoders/VideoEncoder.h"
 #include "rfb/ffmpeg.h"
 
 namespace rfb {
@@ -23,7 +23,7 @@ class H264VAAPIEncoder final : public Encoder, public VideoEncoder {
     uint8_t frame_rate{};
     uint16_t bit_rate{};
     static void write_compact(rdr::OutStream *os, int value);
-    void init(int width, int height);
+    [[nodiscard]] bool init(int width, int height);
 
 public:
     H264VAAPIEncoder(const FFmpeg &ffmpeg, SConnection *conn, uint8_t frame_rate, uint16_t bit_rate);

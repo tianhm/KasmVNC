@@ -79,7 +79,7 @@ namespace rfb {
         }
     }
 
-    void H264VAAPIEncoder::init(int width, int height) {
+    bool H264VAAPIEncoder::init(int width, int height) {
         AVHWFramesContext *frames_ctx{};
         int err{};
 
@@ -91,18 +91,24 @@ namespace rfb {
         frames_ctx->width = width;
         frames_ctx->height = height;
         frames_ctx->initial_pool_size = 20;
-        if ((err = ffmpeg.av_hwframe_ctx_init(hw_frames_ref)) < 0)
-            throw std::runtime_error(fmt::format("Failed to initialize VAAPI frame context: {}", ffmpeg.get_error_description(err)));
+        if (err = ffmpeg.av_hwframe_ctx_init(hw_frames_ref); err < 0) {
+            vlog.error("Failed to initialize VAAPI frame context (%s). Error code: %d", ffmpeg.get_error_description(err).c_str(), err);
+            return false;
+        }
 
         ctx_guard->hw_frames_ctx = ffmpeg.av_buffer_ref(hw_frames_ref);
-        if (!ctx_guard->hw_frames_ctx)
-            throw std::runtime_error("Failed to create buffer reference");
+        if (!ctx_guard->hw_frames_ctx) {
+            vlog.error("Failed to create buffer reference");
+            return false;
+        }
 
         ctx_guard->width = width;
         ctx_guard->height = height;
 
-        if (err = ffmpeg.avcodec_open2(ctx_guard.get(), codec, nullptr); err < 0)
-            throw std::runtime_error(fmt::format("Failed to open codec: {}", ffmpeg.get_error_description(err)));
+        if (err = ffmpeg.avcodec_open2(ctx_guard.get(), codec, nullptr); err < 0) {
+            vlog.error("Failed to open codec (%s). Error code: %d", ffmpeg.get_error_description(err).c_str(), err);
+            return false;
+        }
 
         auto *sws_ctx = ffmpeg.sws_getContext(
                 width, height, AV_PIX_FMT_RGB24, width, height, AV_PIX_FMT_NV12, SWS_BILINEAR, nullptr, nullptr, nullptr);
@@ -117,11 +123,17 @@ namespace rfb {
         frame->width = width;
         frame->height = height;
 
-        if (ffmpeg.av_frame_get_buffer(frame, 0) < 0)
-            throw std::runtime_error("Could not allocate sw-frame data");
+        if (ffmpeg.av_frame_get_buffer(frame, 0) < 0) {
+            vlog.error("Could not allocate sw-frame data");
+            return false;
+        }
 
-        if (err = ffmpeg.av_hwframe_get_buffer(ctx_guard->hw_frames_ctx, hw_frame_guard.get(), 0); err < 0)
-            throw std::runtime_error(fmt::format("Could not allocate hw-frame data: {}", ffmpeg.get_error_description(err)));
+        if (err = ffmpeg.av_hwframe_get_buffer(ctx_guard->hw_frames_ctx, hw_frame_guard.get(), 0); err < 0) {
+            vlog.error("Could not allocate hw-frame data (%s). Error code: %d", ffmpeg.get_error_description(err).c_str(), err);
+            return false;
+        }
+
+        return true;
     }
 
     bool H264VAAPIEncoder::isSupported() {
@@ -138,11 +150,12 @@ namespace rfb {
         const int height = rect.height();
         auto *frame = sw_frame_guard.get();
 
-        const bool is_keyframe = frame->width != static_cast<int>(width) || frame->height != static_cast<int>(height);
-        if (is_keyframe)
-            init(width, height);
-
-        frame->key_frame = is_keyframe;
+        if (frame->width != static_cast<int>(width) || frame->height != static_cast<int>(height)) {
+            if (!init(width, height)) {
+                vlog.error("Failed to initialize encoder");
+                return;
+            }
+        }
 
         const uint8_t *src_data[1] = {buffer};
         const int src_line_size[1] = {width * 3}; // RGB has 3 bytes per pixel

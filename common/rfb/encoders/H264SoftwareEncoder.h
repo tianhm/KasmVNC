@@ -18,7 +18,7 @@ namespace rfb {
         uint8_t frame_rate{};
         uint16_t bit_rate{};
         static void write_compact(rdr::OutStream *os, int value);
-        void init(int src_width, int src_height, int dst_width, int dst_height);
+        [[nodiscard]] bool init(int src_width, int src_height, int dst_width, int dst_height);
 
     public:
         H264SoftwareEncoder(const FFmpeg &ffmpeg, SConnection *conn, uint8_t frame_rate, uint16_t bit_rate);

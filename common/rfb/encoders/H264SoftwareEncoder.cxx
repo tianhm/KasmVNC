@@ -73,11 +73,12 @@ namespace rfb {
         if (height % 2 != 0)
             dst_height = height & ~1;
 
-        const bool is_keyframe = frame->width != dst_width || frame->height != dst_height;
-        if (is_keyframe)
-            init(width, height, dst_width, dst_height);
-
-        frame->key_frame = is_keyframe;
+        if (frame->width != dst_width || frame->height != dst_height) {
+            if (!init(width, height, dst_width, dst_height)) {
+                vlog.error("Failed to initialize encoder");
+                return;
+            }
+        }
 
         const uint8_t *src_data[1] = {buffer};
         const int src_line_size[1] = {width * 3}; // RGB has 3 bytes per pixel
@@ -111,7 +112,7 @@ namespace rfb {
 
         auto *os = conn->getOutStream(conn->cp.supportsUdp);
         os->writeU8(kasmVideoH264 << 4);
-        write_compact(os, pkt->size + 1);
+        write_compact(os, pkt->size);
         os->writeBytes(&pkt->data[0], pkt->size);
 
         ++frame->pts;
@@ -141,7 +142,7 @@ namespace rfb {
         }
     }
 
-    void H264SoftwareEncoder::init(int src_width, int src_height, int dst_width, int dst_height) {
+    bool H264SoftwareEncoder::init(int src_width, int src_height, int dst_width, int dst_height) {
         auto *sws_ctx = ffmpeg.sws_getContext(src_width,
                                               src_height,
                                               AV_PIX_FMT_RGB24,
@@ -164,11 +165,15 @@ namespace rfb {
         frame->height = dst_height;
 
         if (ffmpeg.av_frame_get_buffer(frame, 0) < 0) {
-            throw std::runtime_error("Could not allocate frame data");
+            vlog.error("Could not allocate frame data");
+            return false;
         }
 
         if (ffmpeg.avcodec_open2(ctx_guard.get(), codec, nullptr) < 0) {
-            throw std::runtime_error("Failed to open codec");
+            vlog.error("Failed to open codec");
+            return false;
         }
+
+        return true;
     }
 } // namespace rfb
