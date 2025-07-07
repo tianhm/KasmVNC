@@ -1,9 +1,9 @@
 #include "EncoderProbe.h"
-#include "KasmVideoConstants.h"
 #include <fcntl.h>
-#include <unistd.h>
 #include <string>
+#include <unistd.h>
 #include <vector>
+#include "KasmVideoConstants.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -19,13 +19,12 @@ namespace rfb::video_encoders {
     };
 
     static std::array<EncoderCandidate, 2> candidates = {
-        {{KasmVideoEncoders::Encoder::h264_vaapi, AV_CODEC_ID_H264, AV_HWDEVICE_TYPE_VAAPI},
-         {KasmVideoEncoders::Encoder::h264_software, AV_CODEC_ID_H264, AV_HWDEVICE_TYPE_NONE}}};
+            {{KasmVideoEncoders::Encoder::h264_vaapi, AV_CODEC_ID_H264, AV_HWDEVICE_TYPE_VAAPI},
+             {KasmVideoEncoders::Encoder::h264_software, AV_CODEC_ID_H264, AV_HWDEVICE_TYPE_NONE}}};
 
     EncoderProbe::EncoderProbe(FFmpeg &ffmpeg_) : ffmpeg(ffmpeg_) {
         for (const auto &encoder_candidate: candidates) {
-            const AVCodec *codec =
-                    ffmpeg.avcodec_find_encoder_by_name(KasmVideoEncoders::to_string(encoder_candidate.encoder).data());
+            const AVCodec *codec = ffmpeg.avcodec_find_encoder_by_name(KasmVideoEncoders::to_string(encoder_candidate.encoder).data());
 
             if (!codec)
                 continue;
@@ -39,11 +38,13 @@ namespace rfb::video_encoders {
                     continue;
                 }
 
-                best_encoder = encoder_candidate.encoder;
-
-                break;
+                available_encoders.push_back(encoder_candidate.encoder);
             }
         }
+
+        available_encoders.push_back(KasmVideoEncoders::Encoder::h264_software);
+        available_encoders.shrink_to_fit();
+        best_encoder = available_encoders.front();
     }
 
     bool EncoderProbe::is_acceleration_available() {

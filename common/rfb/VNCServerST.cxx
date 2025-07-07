@@ -79,6 +79,7 @@
 
 #include <fmt/core.h>
 #include "encoders/KasmVideoConstants.h"
+#include "encoders/EncoderProbe.h"
 
 using namespace rfb;
 
@@ -156,6 +157,18 @@ VNCServerST::VNCServerST(const char* name_, SDesktop* desktop_)
               to_string(cpu_info::has_sse4_1),
               to_string(cpu_info::has_sse4_2),
               to_string(cpu_info::has_avx512f));
+
+    std::string available_accelerators{};
+    for (const auto encoder: video_encoders::available_encoders) {
+        if (encoder != KasmVideoEncoders::Encoder::h264_software) {
+            if (!available_accelerators.empty())
+                available_accelerators.append(", ");
+
+            available_accelerators.append(KasmVideoEncoders::to_string(encoder).data());
+        }
+    }
+
+    slog.info("Hardware acceleration capability: %s", available_accelerators.c_str());
 
   DLPRegion.enabled = DLPRegion.percents = false;
 
