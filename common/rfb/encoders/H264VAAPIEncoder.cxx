@@ -38,6 +38,7 @@ namespace rfb {
         if (!frame) {
             throw std::runtime_error("Cannot allocate AVFrame");
         }
+        frame->pts = 0;
         sw_frame_guard.reset(frame);
 
         ctx->time_base = {1, frame_rate};
@@ -45,11 +46,6 @@ namespace rfb {
         ctx->gop_size = GroupOfPictureSize; // interval between I-frames
         ctx->max_b_frames = 0; // No B-frames for immediate output
         ctx->pix_fmt = AV_PIX_FMT_VAAPI;
-
-        auto *hw_frames_ctx = ffmpeg.av_hwframe_ctx_alloc(hw_device_ctx);
-        if (!hw_frames_ctx)
-            throw std::runtime_error("Failed to create VAAPI frame context");
-        hw_frames_ref_guard.reset(hw_frames_ctx);
 
         frame = ffmpeg.av_frame_alloc();
         if (!frame)
@@ -79,31 +75,38 @@ namespace rfb {
         }
     }
 
-    bool H264VAAPIEncoder::init(int width, int height) {
+    bool H264VAAPIEncoder::init(int width, int height, int dst_width, int dst_height) {
         AVHWFramesContext *frames_ctx{};
         int err{};
 
-        auto *hw_frames_ref = hw_frames_ref_guard.get();
+        ctx_guard->width = dst_width;
+        ctx_guard->height = dst_height;
 
-        frames_ctx = reinterpret_cast<AVHWFramesContext *>(hw_frames_ref->data);
+        auto *hw_frames_ctx = ffmpeg.av_hwframe_ctx_alloc(hw_device_ctx_guard.get());
+        if (!hw_frames_ctx) {
+            vlog.error("Failed to create VAAPI frame context");
+            return false;
+        }
+
+        hw_frames_ref_guard.reset(hw_frames_ctx);
+
+        frames_ctx = reinterpret_cast<AVHWFramesContext *>(hw_frames_ctx->data);
         frames_ctx->format = AV_PIX_FMT_VAAPI;
         frames_ctx->sw_format = AV_PIX_FMT_NV12;
-        frames_ctx->width = width;
-        frames_ctx->height = height;
+        frames_ctx->width = dst_width;
+        frames_ctx->height = dst_height;
         frames_ctx->initial_pool_size = 20;
-        if (err = ffmpeg.av_hwframe_ctx_init(hw_frames_ref); err < 0) {
+        if (err = ffmpeg.av_hwframe_ctx_init(hw_frames_ctx); err < 0) {
             vlog.error("Failed to initialize VAAPI frame context (%s). Error code: %d", ffmpeg.get_error_description(err).c_str(), err);
             return false;
         }
 
-        ctx_guard->hw_frames_ctx = ffmpeg.av_buffer_ref(hw_frames_ref);
+        ctx_guard->hw_frames_ctx = ffmpeg.av_buffer_ref(hw_frames_ctx);
         if (!ctx_guard->hw_frames_ctx) {
             vlog.error("Failed to create buffer reference");
             return false;
         }
 
-        ctx_guard->width = width;
-        ctx_guard->height = height;
 
         if (err = ffmpeg.avcodec_open2(ctx_guard.get(), codec, nullptr); err < 0) {
             vlog.error("Failed to open codec (%s). Error code: %d", ffmpeg.get_error_description(err).c_str(), err);
@@ -111,17 +114,15 @@ namespace rfb {
         }
 
         auto *sws_ctx = ffmpeg.sws_getContext(
-                width, height, AV_PIX_FMT_RGB24, width, height, AV_PIX_FMT_NV12, SWS_BILINEAR, nullptr, nullptr, nullptr);
+                width, height, AV_PIX_FMT_RGB32, width, height, AV_PIX_FMT_NV12, SWS_BILINEAR, nullptr, nullptr, nullptr);
 
         sws_guard.reset(sws_ctx);
-
-        ctx_guard->width = width;
-        ctx_guard->height = height;
 
         auto *frame = sw_frame_guard.get();
         frame->format = AV_PIX_FMT_NV12;
         frame->width = width;
         frame->height = height;
+        frame->pict_type = AV_PICTURE_TYPE_NONE;
 
         if (ffmpeg.av_frame_get_buffer(frame, 0) < 0) {
             vlog.error("Could not allocate sw-frame data");
@@ -150,15 +151,27 @@ namespace rfb {
         const int height = rect.height();
         auto *frame = sw_frame_guard.get();
 
-        if (frame->width != static_cast<int>(width) || frame->height != static_cast<int>(height)) {
-            if (!init(width, height)) {
+        int dst_width = width;
+        int dst_height = height;
+
+        if (width % 2 != 0)
+            dst_width = width & ~1;
+
+        if (height % 2 != 0)
+            dst_height = height & ~1;
+
+        if (frame->width != dst_width || frame->height != dst_height) {
+            bpp = pb->getPF().bpp >> 3;
+            if (!init(width, height, dst_width, dst_height)) {
                 vlog.error("Failed to initialize encoder");
                 return;
             }
+        } else {
+            frame->pict_type = AV_PICTURE_TYPE_NONE;
         }
 
         const uint8_t *src_data[1] = {buffer};
-        const int src_line_size[1] = {width * 3}; // RGB has 3 bytes per pixel
+        const int src_line_size[1] = {stride * bpp}; // RGB has bpp bytes per pixel
 
         int err{};
         if (err = ffmpeg.sws_scale(sws_guard.get(), src_data, src_line_size, 0, height, frame->data, frame->linesize); err < 0) {
@@ -195,7 +208,8 @@ namespace rfb {
 
         auto *os = conn->getOutStream(conn->cp.supportsUdp);
         os->writeU8(kasmVideoH264 << 4);
-        write_compact(os, pkt->size + 1);
+        os->writeU8(pkt->flags & AV_PKT_FLAG_KEY);
+        write_compact(os, pkt->size);
         os->writeBytes(&pkt->data[0], pkt->size);
         vlog.debug("Frame size:  %d", pkt->size);
 

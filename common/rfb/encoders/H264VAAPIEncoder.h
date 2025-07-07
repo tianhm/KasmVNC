@@ -22,8 +22,10 @@ class H264VAAPIEncoder final : public Encoder, public VideoEncoder {
 
     uint8_t frame_rate{};
     uint16_t bit_rate{};
+    int bpp{};
+
     static void write_compact(rdr::OutStream *os, int value);
-    [[nodiscard]] bool init(int width, int height);
+    [[nodiscard]] bool init(int width, int height, int dst_width, int dst_height);
 
 public:
     H264VAAPIEncoder(const FFmpeg &ffmpeg, SConnection *conn, uint8_t frame_rate, uint16_t bit_rate);
