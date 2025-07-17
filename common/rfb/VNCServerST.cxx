@@ -168,7 +168,8 @@ VNCServerST::VNCServerST(const char* name_, SDesktop* desktop_)
         }
     }
 
-    slog.info("Hardware acceleration capability: %s", available_accelerators.c_str());
+    const auto str = available_accelerators;
+    slog.info("Hardware video encoding acceleration capability: %s", str.empty() ? "none" : str.c_str());
 
   DLPRegion.enabled = DLPRegion.percents = false;
 
