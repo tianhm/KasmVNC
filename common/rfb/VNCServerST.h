@@ -278,7 +278,7 @@ namespace rfb {
 
     Timer frameTimer;
 
-    int inotifyfd;
+    int inotify_fd{-1};
 
     network::GetAPIMessager *apimessager;
 

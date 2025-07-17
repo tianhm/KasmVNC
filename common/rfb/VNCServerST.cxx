@@ -237,14 +237,14 @@ VNCServerST::VNCServerST(const char* name_, SDesktop* desktop_)
 
   if (kasmpasswdpath[0] && access(kasmpasswdpath, R_OK) == 0) {
     // Set up a watch on the password file
-    inotifyfd = inotify_init();
-    if (inotifyfd < 0)
+    inotify_fd = inotify_init();
+    if (inotify_fd < 0)
       slog.error("Failed to init inotify");
 
-    int flags = fcntl(inotifyfd, F_GETFL, 0);
-    fcntl(inotifyfd, F_SETFL, flags | O_NONBLOCK);
+    int flags = fcntl(inotify_fd, F_GETFL, 0);
+    fcntl(inotify_fd, F_SETFL, flags | O_NONBLOCK);
 
-    if (inotify_add_watch(inotifyfd, kasmpasswdpath, IN_CLOSE_WRITE | IN_DELETE_SELF) < 0)
+    if (inotify_add_watch(inotify_fd, kasmpasswdpath, IN_CLOSE_WRITE | IN_DELETE_SELF) < 0)
       slog.error("Failed to set watch");
   }
 
@@ -1081,16 +1081,16 @@ void VNCServerST::writeUpdate()
 
   // Check if the password file was updated
   bool permcheck = false;
-  if (inotifyfd >= 0) {
+  if (inotify_fd >= 0) {
     char buf[256];
-    int ret = read(inotifyfd, buf, 256);
+    int ret = read(inotify_fd, buf, 256);
     int pos = 0;
     while (ret > 0) {
       const struct inotify_event * const ev = (struct inotify_event *) &buf[pos];
 
       if (ev->mask & IN_IGNORED) {
         // file was deleted, set new watch
-        if (inotify_add_watch(inotifyfd, kasmpasswdpath, IN_CLOSE_WRITE | IN_DELETE_SELF) < 0)
+        if (inotify_add_watch(inotify_fd, kasmpasswdpath, IN_CLOSE_WRITE | IN_DELETE_SELF) < 0)
           slog.error("Failed to set watch");
       }
 
