@@ -23,22 +23,24 @@ namespace rfb::video_encoders {
              {KasmVideoEncoders::Encoder::h264_software, AV_CODEC_ID_H264, AV_HWDEVICE_TYPE_NONE}}};
 
     EncoderProbe::EncoderProbe(FFmpeg &ffmpeg_) : ffmpeg(ffmpeg_) {
-        for (const auto &encoder_candidate: candidates) {
-            const AVCodec *codec = ffmpeg.avcodec_find_encoder_by_name(KasmVideoEncoders::to_string(encoder_candidate.encoder).data());
-
-            if (!codec)
-                continue;
-
-            if (encoder_candidate.hw_type != AV_HWDEVICE_TYPE_NONE) {
-                FFmpeg::BufferGuard hw_ctx_guard;
-                AVBufferRef *hw_ctx{};
-                hw_ctx_guard.reset(hw_ctx);
-
-                if (ffmpeg.av_hwdevice_ctx_create(&hw_ctx, encoder_candidate.hw_type, nullptr, nullptr, 0) < 0) {
+        if (ffmpeg.is_available()) {
+            for (const auto &encoder_candidate: candidates) {
+                const AVCodec *codec = ffmpeg.avcodec_find_encoder_by_name(KasmVideoEncoders::to_string(encoder_candidate.encoder).data());
+                if (!codec)
                     continue;
-                }
 
-                available_encoders.push_back(encoder_candidate.encoder);
+                if (encoder_candidate.hw_type != AV_HWDEVICE_TYPE_NONE) {
+                    FFmpeg::BufferGuard hw_ctx_guard;
+                    AVBufferRef *hw_ctx{};
+                    hw_ctx_guard.reset(hw_ctx);
+
+                    if (auto err = ffmpeg.av_hwdevice_ctx_create(&hw_ctx, encoder_candidate.hw_type, render_path, nullptr, 0); err < 0) {
+                        printf((ffmpeg.get_error_description(err) + '\n').c_str() );
+                        continue;
+                    }
+
+                    available_encoders.push_back(encoder_candidate.encoder);
+                }
             }
         }
 
