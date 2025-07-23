@@ -114,15 +114,15 @@ namespace rfb {
         }
 
         auto *sws_ctx = ffmpeg.sws_getContext(
-                width, height, AV_PIX_FMT_RGB32, width, height, AV_PIX_FMT_NV12, SWS_BILINEAR, nullptr, nullptr, nullptr);
+                width, height, AV_PIX_FMT_RGB32, dst_width, dst_height, AV_PIX_FMT_NV12, SWS_BILINEAR, nullptr, nullptr, nullptr);
 
         sws_guard.reset(sws_ctx);
 
         auto *frame = sw_frame_guard.get();
         frame->format = AV_PIX_FMT_NV12;
-        frame->width = width;
-        frame->height = height;
-        frame->pict_type = AV_PICTURE_TYPE_NONE;
+        frame->width = dst_width;
+        frame->height = dst_height;
+        frame->pict_type = AV_PICTURE_TYPE_I;
 
         if (ffmpeg.av_frame_get_buffer(frame, 0) < 0) {
             vlog.error("Could not allocate sw-frame data");
