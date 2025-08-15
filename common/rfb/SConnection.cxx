@@ -148,7 +148,7 @@ void SConnection::processVersionMsg()
 
     // cope with legacy 3.3 client only if "no authentication" or "vnc
     // authentication" is supported.
-    for (i=secTypes.begin(); i!=secTypes.end(); i++) {
+    for (i=secTypes.begin(); i!=secTypes.end(); ++i) {
       if (*i == secTypeNone || *i == secTypeVncAuth) break;
     }
     if (i == secTypes.end()) {
@@ -170,7 +170,7 @@ void SConnection::processVersionMsg()
     throwConnFailedException("No supported security types");
 
   os->writeU8(secTypes.size());
-  for (i=secTypes.begin(); i!=secTypes.end(); i++)
+  for (i=secTypes.begin(); i!=secTypes.end(); ++i)
     os->writeU8(*i);
   os->flush();
   state_ = RFBSTATE_SECURITY_TYPE;
@@ -192,7 +192,7 @@ void SConnection::processSecurityType(int secType)
   std::list<rdr::U8>::iterator i;
 
   secTypes = security.GetEnabledSecTypes();
-  for (i=secTypes.begin(); i!=secTypes.end(); i++)
+  for (i=secTypes.begin(); i!=secTypes.end(); ++i)
     if (*i == secType) break;
   if (i == secTypes.end())
     throw Exception("Requested security type not available");
@@ -408,10 +408,9 @@ void SConnection::announceClipboard(bool available)
 
 void SConnection::writeFakeColourMap(void)
 {
-  int i;
   rdr::U16 red[256], green[256], blue[256];
 
-  for (i = 0;i < 256;i++)
+  for (int i = 0;i < 256;i++)
     cp.pf().rgbFromPixel(i, &red[i], &green[i], &blue[i]);
 
   writer()->writeSetColourMapEntries(0, 256, red, green, blue);

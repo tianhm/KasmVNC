@@ -68,7 +68,7 @@ namespace rfb {
     // later, after queryConnection() has returned.  It can only be called when
     // in state RFBSTATE_QUERYING.  On rejection, an AuthFailureException is
     // thrown, so this must be handled appropriately by the caller.
-    void approveConnection(bool accept, const char* reason=0);
+    void approveConnection(bool accept, const char* reason=nullptr);
 
 
     // Overridden from SMsgHandler
@@ -155,7 +155,7 @@ namespace rfb {
 
     // authenticated() returns true if the client has authenticated
     // successfully.
-    bool authenticated() { return (state_ == RFBSTATE_INITIALISATION ||
+    bool authenticated() const { return (state_ == RFBSTATE_INITIALISATION ||
                                    state_ == RFBSTATE_NORMAL); }
 
     // throwConnFailedException() prints a message to the log, sends a conn
@@ -211,7 +211,7 @@ namespace rfb {
     std::vector<binaryClipboard_t> binaryClipboard;
 
   private:
-    void writeFakeColourMap(void);
+    void writeFakeColourMap();
 
     bool readyForSetColourMapEntries;
 
