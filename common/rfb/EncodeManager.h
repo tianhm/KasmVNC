@@ -30,10 +30,11 @@
 #include <rfb/Timer.h>
 #include <rfb/UpdateTracker.h>
 
-#include <stdint.h>
 #include <atomic>
+#include <sys/time.h>
 #include <tbb/task_arena.h>
 
+#include "ScreenSet.h"
 #include "ffmpeg.h"
 
 enum startRectOverride {
@@ -68,11 +69,11 @@ namespace rfb {
     bool needsLosslessRefresh(const Region& req);
     void pruneLosslessRefresh(const Region& limits);
 
-    void writeUpdate(const UpdateInfo& ui, const PixelBuffer* pb,
+    void writeUpdate(const UpdateInfo& ui, const ScreenSet &layout, const PixelBuffer* pb,
                      const RenderedCursor* renderedCursor,
                      size_t maxUpdateSize = 2000);
 
-    void writeLosslessRefresh(const Region& req, const PixelBuffer* pb,
+    void writeLosslessRefresh(const Region& req,  const ScreenSet &layout, const PixelBuffer* pb,
                               const RenderedCursor* renderedCursor,
                               size_t maxUpdateSize);
 
@@ -101,6 +102,7 @@ namespace rfb {
     void doUpdate(bool allowLossy, const Region& changed,
                   const Region& copied, const Point& copy_delta,
                   const std::vector<CopyPassRect> &copypassed,
+                  const ScreenSet &layout,
                   const PixelBuffer* pb,
                   const RenderedCursor* renderedCursor);
     void prepareEncoders(bool allowLossy);
@@ -109,23 +111,23 @@ namespace rfb {
 
     int computeNumRects(const Region& changed);
 
-    Encoder *startRect(const Rect& rect, int type, const bool trackQuality = true,
-                       const enum startRectOverride overrider = STARTRECT_NO_OVERRIDE);
-    void endRect(const enum startRectOverride overrider = STARTRECT_NO_OVERRIDE);
+    Encoder *startRect(const Rect& rect, int type, bool trackQuality = true,
+                       enum startRectOverride overrider = STARTRECT_NO_OVERRIDE);
+    void endRect(enum startRectOverride overrider = STARTRECT_NO_OVERRIDE);
 
     void writeCopyRects(const Region& copied, const Point& delta);
     void writeCopyPassRects(const std::vector<CopyPassRect>& copypassed);
     void writeSolidRects(Region *changed, const PixelBuffer* pb);
     void findSolidRect(const Rect& rect, Region *changed, const PixelBuffer* pb);
     void writeRects(const Region& changed, const PixelBuffer* pb,
-                    const struct timeval *start = NULL,
-                    const bool mainScreen = false);
+                    const struct timeval *start = nullptr,
+                    bool mainScreen = false);
     void checkWebpFallback(const struct timeval *start);
     void updateVideoStats(const std::vector<Rect> &rects, const PixelBuffer* pb);
 
-    void writeSubRect(const Rect& rect, const PixelBuffer *pb, const uint8_t type,
+    void writeSubRect(const Rect& rect, const PixelBuffer *pb, uint8_t type,
                       const Palette& pal, const std::vector<uint8_t> &compressed,
-                      const uint8_t isWebp);
+                      uint8_t isWebp);
 
     uint8_t getEncoderType(const Rect& rect, const PixelBuffer *pb, Palette *pal,
                            std::vector<uint8_t> &compressed, uint8_t *isWebp,
@@ -151,8 +153,8 @@ namespace rfb {
 
     void updateQualities();
     void trackRectQuality(const Rect& rect);
-    unsigned getQuality(const Rect& rect) const;
-    unsigned scaledQuality(const Rect& rect) const;
+    [[nodiscard]] unsigned getQuality(const Rect& rect) const;
+    [[nodiscard]] unsigned scaledQuality(const Rect& rect) const;
 
   protected:
     // Preprocessor generated, optimised methods

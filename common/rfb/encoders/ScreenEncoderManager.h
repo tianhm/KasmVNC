@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 #include "KasmVideoConstants.h"
 #include "VideoEncoder.h"
 #include "rfb/Encoder.h"

@@ -1570,7 +1570,7 @@ void VNCSConnectionST::writeDataUpdate()
                   server->msToNextUpdate() / 1000;
 
   if (!ui.is_empty()) {
-    encodeManager.writeUpdate(ui, server->getPixelBuffer(), cursor, maxUpdateSize);
+    encodeManager.writeUpdate(ui, server->screenLayout, server->getPixelBuffer(), cursor, maxUpdateSize);
     copypassed.clear();
     gettimeofday(&lastRealUpdate, NULL);
     losslessTimer.start(losslessThreshold);
@@ -1596,7 +1596,7 @@ void VNCSConnectionST::writeDataUpdate()
         bstats_total[BS_CPU_CLOSE]++;
     }
   } else {
-    encodeManager.writeLosslessRefresh(req, server->getPixelBuffer(),
+    encodeManager.writeLosslessRefresh(req, server->screenLayout, server->getPixelBuffer(),
                                        cursor, maxUpdateSize);
   }
 

@@ -7,6 +7,7 @@
 
 namespace rfb {
     class H264SoftwareEncoder final : public Encoder, public VideoEncoder {
+        uint32_t id;
         const FFmpeg &ffmpeg;
         const AVCodec *codec{};
 
@@ -22,10 +23,11 @@ namespace rfb {
         [[nodiscard]] bool init(int src_width, int src_height, int dst_width, int dst_height);
 
     public:
-        H264SoftwareEncoder(const FFmpeg &ffmpeg, SConnection *conn, uint8_t frame_rate, uint16_t bit_rate);
+        H264SoftwareEncoder(u_int32_t id, const FFmpeg &ffmpeg, SConnection *conn, uint8_t frame_rate, uint16_t bit_rate);
         bool isSupported() override;
         void writeRect(const PixelBuffer *pb, const Palette &palette) override;
         void writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) override;
+        Encoder *clone(u_int32_t id) override;
         void writeSkipRect() override;
     };
 } // namespace rfb

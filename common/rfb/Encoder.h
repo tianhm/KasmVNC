@@ -21,7 +21,7 @@
 #define __RFB_ENCODER_H__
 
 #include <rdr/types.h>
-#include <rfb/Rect.h>
+#include <rfb/SConnection.h>
 
 namespace rfb {
   class SConnection;

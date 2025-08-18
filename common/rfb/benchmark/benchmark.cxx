@@ -84,15 +84,15 @@ namespace benchmarking {
 
         ~MockSConnection() override = default;
 
-        void writeUpdate(const rfb::UpdateInfo &ui, const rfb::PixelBuffer *pb) {
+        void writeUpdate(const rfb::UpdateInfo &ui, const ScreenSet& layout, const rfb::PixelBuffer *pb) {
             cache.clear();
 
             manager.clearEncodingTime();
             if (!ui.is_empty()) {
-                manager.writeUpdate(ui, pb, nullptr);
+                manager.writeUpdate(ui, layout, pb, nullptr);
             } else {
                 rfb::Region region{pb->getRect()};
-                manager.writeLosslessRefresh(region, pb, nullptr, 2000);
+                manager.writeLosslessRefresh(region, layout, pb, nullptr, 2000);
             }
         }
 
@@ -230,7 +230,7 @@ namespace benchmarking {
             updates.add_changed(pb->getRect());
 
             updates.getUpdateInfo(&ui, clip);
-            sc.writeUpdate(ui, pb);
+            sc.writeUpdate(ui, screen_layout, pb);
         }
 
         void dataRect(const rfb::Rect &r, int encoding) override {}

@@ -44,6 +44,9 @@
 #include <rfb/TightWEBPEncoder.h>
 #include <rfb/ZRLEEncoder.h>
 #include <tbb/parallel_for.h>
+
+#include "encoders/EncoderProbe.h"
+#include "encoders/ScreenEncoderManager.h"
 #include "encoders/VideoEncoder.h"
 #include "encoders/VideoEncoderFactory.h"
 
@@ -182,7 +185,7 @@ EncodeManager::EncodeManager(SConnection *conn_, EncCache *encCache_, const FFmp
     encoders[encoderZRLE] = new ZRLEEncoder(conn);
 
     if (ffmpeg_available)
-        encoders[encoderKasmVideo] = create_encoder(ffmpeg, video_encoders::best_encoder, conn, Server::frameRate, Server::videoBitrate);
+        encoders[encoderKasmVideo] = new ScreenEncoderManager(ffmpeg, video_encoders::best_encoder, video_encoders::available_encoders, conn,Server::frameRate, Server::videoBitrate);
 
     video_mode_available = ffmpeg_available && Server::videoCodec[0];
 
@@ -340,15 +343,15 @@ void EncodeManager::pruneLosslessRefresh(const Region& limits)
   lossyRegion.assign_intersect(limits);
 }
 
-void EncodeManager::writeUpdate(const UpdateInfo& ui, const PixelBuffer* pb,
+void EncodeManager::writeUpdate(const UpdateInfo& ui, const ScreenSet &layout, const PixelBuffer* pb,
                                 const RenderedCursor* renderedCursor,
                                 size_t maxUpdateSize)
 {
     curMaxUpdateSize = maxUpdateSize;
-    doUpdate(true, ui.changed, ui.copied, ui.copy_delta, ui.copypassed, pb, renderedCursor);
+    doUpdate(true, ui.changed, ui.copied, ui.copy_delta, ui.copypassed, layout, pb, renderedCursor);
 }
 
-void EncodeManager::writeLosslessRefresh(const Region& req, const PixelBuffer* pb,
+void EncodeManager::writeLosslessRefresh(const Region& req,  const ScreenSet &layout, const PixelBuffer* pb,
                                          const RenderedCursor* renderedCursor,
                                          size_t maxUpdateSize)
 {
@@ -356,22 +359,22 @@ void EncodeManager::writeLosslessRefresh(const Region& req, const PixelBuffer* p
         return;
 
     doUpdate(false, getLosslessRefresh(req, maxUpdateSize),
-             Region(), Point(), std::vector<CopyPassRect>(), pb, renderedCursor);
+             Region(), Point(), std::vector<CopyPassRect>(), layout, pb, renderedCursor);
 }
 
 void EncodeManager::doUpdate(bool allowLossy, const Region& changed_,
                              const Region& copied, const Point& copyDelta,
                              const std::vector<CopyPassRect>& copypassed,
+                             const ScreenSet &layout,
                              const PixelBuffer* pb,
-                             const RenderedCursor* renderedCursor)
-{
+                             const RenderedCursor* renderedCursor) {
     int nRects;
     Region changed, cursorRegion;
     struct timeval start;
 
     updates++;
     if (conn->cp.supportsUdp)
-      ((network::UdpStream *) conn->getOutStream(conn->cp.supportsUdp))->setFrameNumber(updates);
+        ((network::UdpStream *) conn->getOutStream(conn->cp.supportsUdp))->setFrameNumber(updates);
 
 
     // The video resolution may have changed, check it
@@ -381,12 +384,12 @@ void EncodeManager::doUpdate(bool allowLossy, const Region& changed_,
     // The dynamic quality params may have changed
     if (Server::dynamicQualityMax && Server::dynamicQualityMax <= 9 &&
         Server::dynamicQualityMax > Server::dynamicQualityMin) {
-      dynamicQualityMin = Server::dynamicQualityMin;
-      dynamicQualityOff = Server::dynamicQualityMax - Server::dynamicQualityMin;
-    } else if (Server::dynamicQualityMin >= 0) {
-      dynamicQualityMin = Server::dynamicQualityMin;
-      dynamicQualityOff = 0;
-    }
+        dynamicQualityMin = Server::dynamicQualityMin;
+        dynamicQualityOff = Server::dynamicQualityMax - Server::dynamicQualityMin;
+        } else if (Server::dynamicQualityMin >= 0) {
+            dynamicQualityMin = Server::dynamicQualityMin;
+            dynamicQualityOff = 0;
+        }
 
     prepareEncoders(allowLossy);
 
@@ -405,20 +408,20 @@ void EncodeManager::doUpdate(bool allowLossy, const Region& changed_,
      * magical pixel buffer, so split it out from the changed region.
      */
     if (renderedCursor != NULL) {
-      cursorRegion = changed.intersect(renderedCursor->getEffectiveRect());
-      changed.assign_subtract(renderedCursor->getEffectiveRect());
+        cursorRegion = changed.intersect(renderedCursor->getEffectiveRect());
+        changed.assign_subtract(renderedCursor->getEffectiveRect());
     }
 
     if (conn->cp.supportsLastRect)
-      nRects = 0xFFFF;
+        nRects = 0xFFFF;
     else {
-      nRects = copied.numRects();
-      nRects += copypassed.size();
-      nRects += computeNumRects(changed);
-      nRects += computeNumRects(cursorRegion);
+        nRects = copied.numRects();
+        nRects += copypassed.size();
+        nRects += computeNumRects(changed);
+        nRects += computeNumRects(cursorRegion);
 
-      if (watermarkData)
-          nRects++;
+        if (watermarkData)
+            nRects++;
     }
 
     conn->writer()->writeFramebufferUpdateStart(nRects);
@@ -677,43 +680,54 @@ int EncodeManager::computeNumRects(const Region& changed)
   return numRects;
 }
 
-Encoder *EncodeManager::startRect(const Rect& rect, int type, const bool trackQuality,
-                                  const startRectOverride overrider)
-{
-  Encoder *encoder;
-  int klass, equiv;
+Encoder *EncodeManager::startRect(const Rect &rect, int type, const bool trackQuality, const startRectOverride overrider) {
+    printf("startRect (%d %d %d %d), type: %s, overrider: %d\n",
+           rect.tl.x,
+           rect.tl.y,
+           rect.br.x,
+           rect.br.y,
+           encoderTypeName(EncoderType(type)),
+           overrider);
 
-  activeType = type;
-  klass = activeEncoders[activeType];
-  if (overrider == STARTRECT_OVERRIDE_WEBP)
-    klass = encoderTightWEBP;
-  else if (overrider == STARTRECT_OVERRIDE_KASMVIDEO)
-    klass = encoderKasmVideo;
+    activeType = type;
 
-  beforeLength = conn->getOutStream(conn->cp.supportsUdp)->length();
+    int klass;
 
-  stats[klass][activeType].rects++;
-  stats[klass][activeType].pixels += rect.area();
-  equiv = 12 + rect.area() * (conn->cp.pf().bpp/8);
-  stats[klass][activeType].equivalent += equiv;
+    switch (overrider) {
+        case STARTRECT_OVERRIDE_WEBP:
+            klass = encoderTightWEBP;
+            break;
+        case STARTRECT_OVERRIDE_KASMVIDEO:
+            klass = encoderKasmVideo;
+            break;
+        default:
+            klass = activeEncoders[activeType];
+    }
 
-  encoder = encoders[klass];
-  conn->writer()->startRect(rect, encoder->encoding);
+    beforeLength = static_cast<int>(conn->getOutStream(conn->cp.supportsUdp)->length());
 
-  if (type == encoderFullColour && dynamicQualityMin > -1 && trackQuality) {
-    trackRectQuality(rect);
+    stats[klass][activeType].rects++;
+    stats[klass][activeType].pixels += rect.area();
+    const int equiv = 12 + rect.area() * (conn->cp.pf().bpp >> 3);
+    stats[klass][activeType].equivalent += equiv;
 
-    // Set the dynamic quality here. Unset fine quality, as it would overrule us
-    encoder->setQualityLevel(scaledQuality(rect));
-    encoder->setFineQualityLevel(-1, subsampleUndefined);
-  }
+    Encoder *encoder = encoders[klass];
+    conn->writer()->startRect(rect, encoder->encoding);
 
-  if (encoder->flags & EncoderLossy && (!encoder->treatLossless() || videoDetected))
-    lossyRegion.assign_union(Region(rect));
-  else
-    lossyRegion.assign_subtract(Region(rect));
+    if (type == encoderFullColour && dynamicQualityMin > -1 && trackQuality) {
+        trackRectQuality(rect);
 
-  return encoder;
+        // Set the dynamic quality here. Unset fine quality, as it would overrule us
+        encoder->setQualityLevel(scaledQuality(rect));
+        encoder->setFineQualityLevel(-1, subsampleUndefined);
+    }
+
+    if (encoder->flags & EncoderLossy && (!encoder->treatLossless() || videoDetected))
+        lossyRegion.assign_union(Region(rect));
+    else
+        lossyRegion.assign_subtract(Region(rect));
+
+    return encoder;
 }
 
 void EncodeManager::endRect(const enum startRectOverride overrider)
@@ -1325,12 +1339,11 @@ uint8_t EncodeManager::getEncoderType(const Rect& rect, const PixelBuffer *pb,
   struct RectInfo info;
   unsigned int maxColours = 256;
   PixelBuffer *ppb;
-  Encoder *encoder;
 
   bool useRLE;
   EncoderType type;
 
-  encoder = encoders[activeEncoders[encoderIndexedRLE]];
+  const Encoder *encoder = encoders[activeEncoders[encoderIndexedRLE]];
   if (maxColours > encoder->maxPaletteSize)
     maxColours = encoder->maxPaletteSize;
   encoder = encoders[activeEncoders[encoderIndexed]];

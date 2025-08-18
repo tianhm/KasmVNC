@@ -262,7 +262,18 @@ rfb::BoolParameter rfb::Server::printVideoArea
 ("PrintVideoArea",
  "Print the detected video area % value.",
  false);
-
+rfb::IntParameter rfb::Server::videoQualityCRFCQP
+("VideoQualityCRFCPQ",
+ "The CRF/CPQ value to use when encoding video",
+ 17, 0, 51);
+rfb::IntParameter rfb::Server::groupOfPicture
+("GroupOfPicture",
+ "The number of frames to group together for encoding",
+ 24, 0, 100);
+rfb::StringParameter rfb::Server::hwAccelDevice
+("HWAccelDevice",
+ "Path to the hardware acceleration device (e.g. /dev/dri/renderD128)",
+ "");
 rfb::StringParameter rfb::Server::kasmPasswordFile
 ("KasmPasswordFile",
  "Password file for BasicAuth, created with the kasmvncpasswd utility.",
@@ -287,10 +298,6 @@ rfb::IntParameter rfb::Server::udpPort
  "Which port to use for UDP. Default same as websocket",
  0, 0, 65535);
 
-rfb::IntParameter rfb::Server::videoBitrate
-("videoBitrate",
- "Bitrate in kbps to use when encoding with a -videoCodec, default 300",
- 300, 0, 10000);
 rfb::StringParameter rfb::Server::videoCodec
 ("videoCodec",
  "If set, use this codec to send a video stream for WebCodecs. Supported options: h264",

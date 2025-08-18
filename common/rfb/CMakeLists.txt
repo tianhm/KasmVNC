@@ -71,7 +71,10 @@ set(RFB_SOURCES
         ffmpeg.cxx
         encoders/H264SoftwareEncoder.cxx
         benchmark/FfmpegFrameFeeder.cpp
+        encoders/ScreenEncoderManager.cxx
         encoders/H264VAAPIEncoder.cxx
+        encoders/H264FFMPEGVAAPIEncoder.cxx
+        encoders/ScreenEncoderManager.cxx
         encoders/VideoEncoderFactory.cxx
         encoders/EncoderProbe.cpp
 )
@@ -85,7 +88,7 @@ if (WIN32)
     set(RFB_SOURCES ${RFB_SOURCES} WinPasswdValidator.cxx)
 endif (WIN32)
 
-set(RFB_LIBRARIES ${JPEG_LIBRARIES} ${PNG_LIBRARIES} os rdr Xregion)
+set(RFB_LIBRARIES ${JPEG_LIBRARIES} ${PNG_LIBRARIES} os rdr Xregion freetype webp crypt)
 
 cmake_host_system_information(RESULT DISTRO QUERY DISTRIB_INFO)
 if ((CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10) OR
@@ -138,6 +141,7 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(CPUID REQUIRED libcpuid)
 pkg_check_modules(FMT REQUIRED fmt)
+pkg_check_modules(VIDEO_ACCELERATION REQUIRED libva libva-drm libdrm)
 
 find_package(TBB)
 if (TBB_FOUND)
@@ -160,12 +164,13 @@ target_include_directories(rfb PRIVATE
         ${CPUID_INCLUDE_DIRS}
 )
 
-set(RFB_LIBRARIES ${RFB_LIBRARIES} tinyxml2_objs ${TBB_LIBRARIES} ${CPUID_LIBRARIES} ${FMT_LIBRARIES})
+set(RFB_LIBRARIES ${RFB_LIBRARIES} tinyxml2_objs ${TBB_LIBRARIES} ${CPUID_LIBRARIES} ${FMT_LIBRARIES} ${VIDEO_ACCELERATION_LIBRARIES})
 
 if (DEBUG_FFMPEG)
     set(RFB_LIBRARIES ${RFB_LIBRARIES} ${FFMPEG_LIBRARIES})
 endif ()
 
+target_include_directories(rfb PUBLIC ${VIDEO_ACCELERATION_INCLUDE_DIRS})
 target_link_libraries(rfb PUBLIC ${RFB_LIBRARIES})
 
 if (UNIX)

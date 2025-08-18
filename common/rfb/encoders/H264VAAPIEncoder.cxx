@@ -94,6 +94,13 @@ namespace rfb {
 
         VAConfigAttrib config_attrib = {VAConfigAttribRTFormat, VA_RT_FORMAT_RGB32 | VA_RT_FORMAT_YUV420};
 
+        if (VAStatus va_status = vaCreateConfig(dpy, VAProfileNone, VAEntrypointVLD, &config_attrib, 1, &config_id); va_status != VA_STATUS_SUCCESS) {
+            throw std::runtime_error(fmt::format("H264 VA-API Encoder vaCreateConfig failed: {}", vaErrorStr(va_status)));
+        }
+
+
+
+        ;
         if (VAStatus va_status = vaCreateConfig(dpy, VAProfileNone, VAEntrypointVLD, &config_attrib, 1, &config_id);
             va_status != VA_STATUS_SUCCESS) {
             throw std::runtime_error(
