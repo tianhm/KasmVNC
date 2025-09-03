@@ -36,9 +36,9 @@
 #define XK_MISCELLANY
 #define XK_XKB_KEYS
 #include <rfb/keysymdef.h>
-#include <ctype.h>
-#include <stdlib.h>
-#include <stdint.h>
+#include <cctype>
+#include <cstdlib>
+#include <cstdint>
 #include <wordexp.h>
 
 #include "kasmpasswd.h"
@@ -77,11 +77,7 @@ VNCSConnectionST::VNCSConnectionST(VNCServerST* server_, network::Socket *s,
   VNCServerST::connectionsLog.write(1,"accepted: %s", peerEndpoint.buf);
 
   memset(bstats_total, 0, sizeof(bstats_total));
-  gettimeofday(&connStart, NULL);
-
-  unsigned i;
-  for (i = 0; i < MAX_UNIX_RELAYS; i++)
-    unixRelaySubscriptions[i][0] = '\0';
+  gettimeofday(&connStart, nullptr);
 
   // Check their permissions, if applicable
   kasmpasswdpath[0] = '\0';
@@ -1559,7 +1555,7 @@ void VNCSConnectionST::writeDataUpdate()
       msSince(&lastRealUpdate) < losslessThreshold))
     return;
 
-  writeRTTPing();
+  // writeRTTPing();
 
   // FIXME: If continuous updates aren't used then the client might
   //        be slower than frameRate in its requests and we could
@@ -1600,7 +1596,7 @@ void VNCSConnectionST::writeDataUpdate()
                                        cursor, maxUpdateSize);
   }
 
-  writeRTTPing();
+ //  writeRTTPing();
 
   // The request might be for just part of the screen, so we cannot
   // just clear the entire update tracker.

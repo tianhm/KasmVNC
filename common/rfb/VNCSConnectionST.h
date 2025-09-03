@@ -361,7 +361,7 @@ namespace rfb {
     bool frameTracking;
     uint32_t udpFramesSinceFull;
 
-    char unixRelaySubscriptions[MAX_UNIX_RELAYS][MAX_UNIX_RELAY_NAME_LEN];
+    char unixRelaySubscriptions[MAX_UNIX_RELAYS][MAX_UNIX_RELAY_NAME_LEN] = {};
     bool complainedAboutNoViewRights;
     std::string clientUsername;
   };

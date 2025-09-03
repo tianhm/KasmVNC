@@ -21,16 +21,13 @@
 #include <rdr/types.h>
 
 namespace rfb {
-  const rdr::U32 fenceFlagBlockBefore = 1<<0;
-  const rdr::U32 fenceFlagBlockAfter  = 1<<1;
-  const rdr::U32 fenceFlagSyncNext    = 1<<2;
+    constexpr rdr::U32 fenceFlagBlockBefore = 1<<0;
+    constexpr rdr::U32 fenceFlagBlockAfter  = 1<<1;
+    constexpr rdr::U32 fenceFlagSyncNext    = 1<<2;
 
-  const rdr::U32 fenceFlagRequest     = 1<<31;
+    constexpr rdr::U32 fenceFlagRequest     = 1<<31;
 
-  const rdr::U32 fenceFlagsSupported  = (fenceFlagBlockBefore |
-                                         fenceFlagBlockAfter |
-                                         fenceFlagSyncNext |
-                                         fenceFlagRequest);
+    constexpr rdr::U32 fenceFlagsSupported  = fenceFlagBlockBefore | fenceFlagBlockAfter | fenceFlagSyncNext | fenceFlagRequest;
 }
 
 #endif
