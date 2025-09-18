@@ -1,5 +1,6 @@
 #include "VideoEncoderFactory.h"
 
+#include <cstdint>
 #include "H264FFMPEGVAAPIEncoder.h"
 #include "H264SoftwareEncoder.h"
 #include "H264VAAPIEncoder.h"
@@ -23,7 +24,7 @@ namespace rfb {
 
     template<typename T>
     class H264EncoderBuilder : public EncoderBuilder {
-        uint32_t id{std::numeric_limits<u_int32_t>::max()};
+        uint32_t id{std::numeric_limits<uint32_t>::max()};
         const FFmpeg *ffmpeg{};
         int frame_rate{};
         int bit_rate{};
@@ -65,7 +66,7 @@ namespace rfb {
         }
 
         Encoder *build() override {
-            if (id == std::numeric_limits<u_int32_t>::max())
+            if (id == std::numeric_limits<uint32_t>::max())
                 throw std::runtime_error("Encoder does not have a valid id");
 
             if (!conn)
@@ -86,7 +87,7 @@ namespace rfb {
     using H264VAAPIEncoderBuilder = H264EncoderBuilder<H264VAAPIEncoder>;
     using H264SoftwareEncoderBuilder = H264EncoderBuilder<H264SoftwareEncoder>;
 
-    Encoder *create_encoder(u_int32_t id, const FFmpeg *ffmpeg, KasmVideoEncoders::Encoder video_encoder, SConnection *conn,
+    Encoder *create_encoder(uint32_t id, const FFmpeg *ffmpeg, KasmVideoEncoders::Encoder video_encoder, SConnection *conn,
                             uint8_t frame_rate, uint16_t bit_rate) {
         switch (video_encoder) {
             case KasmVideoEncoders::Encoder::h264_vaapi:

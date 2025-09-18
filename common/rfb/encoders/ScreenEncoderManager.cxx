@@ -14,7 +14,7 @@ namespace rfb {
 
     ScreenEncoderManager::~ScreenEncoderManager() = default;
 
-    Encoder *ScreenEncoderManager::add_screen(u_int32_t id) const {
+    Encoder *ScreenEncoderManager::add_screen(uint32_t id) const {
         Encoder *encoder{};
         try {
             encoder = create_encoder(id, &ffmpeg, base_video_encoder, conn, frame_rate, bit_rate);

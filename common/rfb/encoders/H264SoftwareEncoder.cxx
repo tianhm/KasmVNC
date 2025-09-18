@@ -13,7 +13,7 @@ extern "C" {
 static rfb::LogWriter vlog("H264SoftwareEncoder");
 
 namespace rfb {
-    H264SoftwareEncoder::H264SoftwareEncoder(u_int32_t id, const FFmpeg &ffmpeg_, SConnection *conn, uint8_t frame_rate_, uint16_t bit_rate_) :
+    H264SoftwareEncoder::H264SoftwareEncoder(uint32_t id, const FFmpeg &ffmpeg_, SConnection *conn, uint8_t frame_rate_, uint16_t bit_rate_) :
         Encoder(conn, encodingKasmVideo, static_cast<EncoderFlags>(EncoderUseNativePF | EncoderLossy), -1), VideoEncoder(id), ffmpeg(ffmpeg_),
         frame_rate(frame_rate_), bit_rate(bit_rate_) {
         codec = ffmpeg.avcodec_find_encoder(AV_CODEC_ID_H264);
@@ -126,7 +126,7 @@ namespace rfb {
 
     void H264SoftwareEncoder::writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) {}
 
-    Encoder *H264SoftwareEncoder::clone(u_int32_t id) {
+    Encoder *H264SoftwareEncoder::clone(uint32_t id) {
         return new H264SoftwareEncoder(id, ffmpeg, conn, frame_rate, bit_rate);
     }
 

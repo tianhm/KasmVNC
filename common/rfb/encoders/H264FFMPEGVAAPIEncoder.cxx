@@ -15,7 +15,7 @@ extern "C" {
 static rfb::LogWriter vlog("H264FFMPEGVAAPIEncoder");
 
 namespace rfb {
-    H264FFMPEGVAAPIEncoder::H264FFMPEGVAAPIEncoder(u_int32_t id, const FFmpeg &ffmpeg_, SConnection *conn, uint8_t frame_rate_, uint16_t bit_rate_) :
+    H264FFMPEGVAAPIEncoder::H264FFMPEGVAAPIEncoder(uint32_t id, const FFmpeg &ffmpeg_, SConnection *conn, uint8_t frame_rate_, uint16_t bit_rate_) :
         Encoder(conn, encodingKasmVideo, static_cast<EncoderFlags>(EncoderUseNativePF | EncoderLossy), -1), VideoEncoder(id), ffmpeg(ffmpeg_),
         frame_rate(frame_rate_), bit_rate(bit_rate_) {
         AVBufferRef *hw_device_ctx{};
@@ -227,7 +227,7 @@ namespace rfb {
 
     void H264FFMPEGVAAPIEncoder::writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) {}
 
-    Encoder *H264FFMPEGVAAPIEncoder::clone(u_int32_t id) {
+    Encoder *H264FFMPEGVAAPIEncoder::clone(uint32_t id) {
         return new H264FFMPEGVAAPIEncoder(id, ffmpeg, conn, frame_rate, bit_rate);
     }
 
