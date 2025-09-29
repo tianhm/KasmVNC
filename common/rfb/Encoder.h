@@ -41,9 +41,11 @@ namespace rfb {
 
   class Encoder {
   public:
-    Encoder(SConnection* conn, int encoding,
-            enum EncoderFlags flags, unsigned int maxPaletteSize);
-    virtual ~Encoder() = default;
+      using Id = uint32_t;
+      static constexpr auto UndefinedId = std::numeric_limits<Id>::max();
+      Encoder(SConnection* conn, int encoding, EncoderFlags flags, unsigned int maxPaletteSize);
+      Encoder(Id id, SConnection* conn, int encoding, EncoderFlags flags, unsigned int maxPaletteSize);
+      virtual ~Encoder() = default;
 
     // isSupported() should return a boolean indicating if this encoder
     // is okay to use with the current connection. This usually involves
@@ -82,6 +84,8 @@ namespace rfb {
                                 const PixelFormat& pf,
                                 const rdr::U8* colour)=0;
 
+      [[nodiscard]] Id getId() const { return id; }
+
   protected:
     // Helper method for redirecting a single colour palette to the
     // short cut method.
@@ -95,7 +99,8 @@ namespace rfb {
     const unsigned int maxPaletteSize;
 
   protected:
-    SConnection* conn;
+      SConnection* conn;
+      Id id;
   };
 }
 

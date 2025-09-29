@@ -23,12 +23,11 @@
 
 using namespace rfb;
 
-Encoder::Encoder(SConnection *conn_, int encoding_,
-                 enum EncoderFlags flags_, unsigned int maxPaletteSize_) :
-  encoding(encoding_), flags(flags_),
-  maxPaletteSize(maxPaletteSize_), conn(conn_)
-{
-}
+Encoder::Encoder(SConnection *conn_, int encoding_, EncoderFlags flags_, unsigned int maxPaletteSize_) :
+    encoding(encoding_), flags(flags_), maxPaletteSize(maxPaletteSize_), conn(conn_), id(UndefinedId) {}
+
+Encoder::Encoder(Id id_, SConnection *conn_, int encoding_, EncoderFlags flags_, unsigned int maxPaletteSize_) :
+    encoding(encoding_), flags(flags_), maxPaletteSize(maxPaletteSize_), conn(conn_), id(id_) {}
 
 void Encoder::writeSolidRect(int width, int height,
                              const PixelFormat& pf, const rdr::U8* colour)

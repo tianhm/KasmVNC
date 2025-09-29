@@ -8,14 +8,13 @@
 namespace rfb {
     class ScreenEncoderManager final : public Encoder {
         const FFmpeg &ffmpeg;
-        uint8_t frame_rate{};
-        uint16_t bit_rate{};
+        VideoEncoderParams current_params;
 
         KasmVideoEncoders::Encoder base_video_encoder;
         std::vector<KasmVideoEncoders::Encoder> available_encoders;
         std::vector<Encoder *> encoders;
 
-        Encoder *add_screen(uint32_t id) const;
+        Encoder *add_screen(const Screen &layout) const;
         [[nodiscard]] size_t get_screen_count() const;
         void remove_screen(Encoder *encoder);
         Encoder *get_screen(size_t screen_id) const;
@@ -39,9 +38,9 @@ namespace rfb {
             return encoders.end();
         }
 
-        explicit ScreenEncoderManager(const FFmpeg &ffmpeg, KasmVideoEncoders::Encoder encoder,
-                                      const std::vector<KasmVideoEncoders::Encoder> &encoders, SConnection *conn, uint8_t frame_rate,
-                                      uint16_t bit_rate);
+        explicit ScreenEncoderManager(const FFmpeg &ffmpeg_, KasmVideoEncoders::Encoder encoder,
+                                      const std::vector<KasmVideoEncoders::Encoder> &encoders, SConnection *conn,
+                                      VideoEncoderParams params);
         ~ScreenEncoderManager() override;
 
         ScreenEncoderManager(const ScreenEncoderManager &) = delete;

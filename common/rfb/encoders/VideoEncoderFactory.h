@@ -1,12 +1,11 @@
 #pragma once
 
-#include <cstdint>
 #include "KasmVideoConstants.h"
+#include "VideoEncoder.h"
 #include "rfb/Encoder.h"
 #include "rfb/ffmpeg.h"
 
 namespace rfb {
-    Encoder *create_encoder(uint32_t id, const FFmpeg *ffmpeg, KasmVideoEncoders::Encoder video_encoder, SConnection *conn, uint8_t frame_rate,
-                            uint16_t bit_rate);
+    Encoder *create_encoder(const Screen &layout, const FFmpeg *ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder video_encoder, VideoEncoderParams params);
 
 } // namespace rfb

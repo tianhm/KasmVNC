@@ -1,21 +1,24 @@
 #pragma once
 
-#include <cstdint>
-#include <rfb/Encoder.h>
-
 namespace rfb {
-    class VideoEncoder {
-        uint32_t id;
+    struct VideoEncoderParams {
+        int width{};
+        int height{};
+        uint8_t frame_rate{};
+        uint8_t group_of_picture{};
+        uint8_t quality{};
 
+        bool operator==(const VideoEncoderParams &rhs) const noexcept {
+            return width == rhs.width && height == rhs.height && frame_rate == rhs.frame_rate && group_of_picture == rhs.group_of_picture &&
+                   quality == rhs.quality;
+        }
+        bool operator!=(const VideoEncoderParams &rhs) const noexcept {
+            return !(*this == rhs);
+        }
+    };
+
+    class VideoEncoder {
     public:
-        explicit VideoEncoder(uint32_t id_) : id(id_) {}
-        virtual Encoder *clone(uint32_t id) = 0;
-        void setId(uint32_t id_) {
-            id = id_;
-        }
-        [[nodiscard]] uint32_t getId() const {
-            return id;
-        }
         virtual void writeSkipRect() = 0;
         virtual ~VideoEncoder() = default;
     };

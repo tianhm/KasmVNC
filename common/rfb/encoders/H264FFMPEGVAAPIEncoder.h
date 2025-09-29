@@ -1,5 +1,6 @@
 #pragma once
 
+#include "KasmVideoConstants.h"
 #include "rdr/OutStream.h"
 #include "rfb/Encoder.h"
 #include "rfb/encoders/VideoEncoder.h"
@@ -7,7 +8,7 @@
 
 namespace rfb {
 class H264FFMPEGVAAPIEncoder final : public Encoder, public VideoEncoder {
-    uint32_t id;
+    Screen layout;
     const FFmpeg &ffmpeg;
 
     FFmpeg::FrameGuard sw_frame_guard;
@@ -20,19 +21,24 @@ class H264FFMPEGVAAPIEncoder final : public Encoder, public VideoEncoder {
 
     const AVCodec *codec{};
 
-    uint8_t frame_rate{};
-    uint16_t bit_rate{};
+    KasmVideoEncoders::Encoder encoder;
+    VideoEncoderParams current_params{};
+
+    int64_t pts{};
     int bpp{};
 
     static void write_compact(rdr::OutStream *os, int value);
-    [[nodiscard]] bool init(int width, int height, int dst_width, int dst_height);
+    [[nodiscard]] bool init(int width, int height, VideoEncoderParams params);
+
+    template<typename T>
+    friend class H264EncoderBuilder;
+    H264FFMPEGVAAPIEncoder(Screen layout, const FFmpeg &ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder encoder,
+                           VideoEncoderParams params);
 
 public:
-    H264FFMPEGVAAPIEncoder(uint32_t id, const FFmpeg &ffmpeg, SConnection *conn, uint8_t frame_rate, uint16_t bit_rate);
     bool isSupported() override;
     void writeRect(const PixelBuffer *pb, const Palette &palette) override;
     void writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) override;
-    Encoder *clone(uint32_t id) override;
     void writeSkipRect() override;
 };
 } // namespace rfb

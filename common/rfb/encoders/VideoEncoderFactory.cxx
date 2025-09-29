@@ -24,12 +24,15 @@ namespace rfb {
 
     template<typename T>
     class H264EncoderBuilder : public EncoderBuilder {
-        uint32_t id{std::numeric_limits<uint32_t>::max()};
+        static constexpr uint32_t INVALID_ID{std::numeric_limits<uint32_t>::max()};
+        Screen layout{};
         const FFmpeg *ffmpeg{};
-        int frame_rate{};
-        int bit_rate{};
+        KasmVideoEncoders::Encoder encoder{};
+        VideoEncoderParams params{};
         SConnection *conn{};
-        explicit H264EncoderBuilder(const FFmpeg *ffmpeg_) : ffmpeg(ffmpeg_) {}
+        explicit H264EncoderBuilder(const FFmpeg *ffmpeg_) : ffmpeg(ffmpeg_) {
+            layout.id = INVALID_ID;
+        }
         H264EncoderBuilder() = default;
 
     public:
@@ -41,14 +44,14 @@ namespace rfb {
             return H264EncoderBuilder{};
         }
 
-        H264EncoderBuilder &with_frame_rate(int value) {
-            frame_rate = value;
+        H264EncoderBuilder &with_params(VideoEncoderParams value) {
+            params = value;
 
             return *this;
         }
 
-        H264EncoderBuilder &with_bit_rate(int value) {
-            bit_rate = value;
+        H264EncoderBuilder &with_encoder(KasmVideoEncoders::Encoder value) {
+            encoder = value;
 
             return *this;
         }
@@ -60,13 +63,19 @@ namespace rfb {
         }
 
         H264EncoderBuilder &with_id(uint32_t value) {
-            id = value;
+            layout.id = value;
+
+            return *this;
+        }
+
+        H264EncoderBuilder &with_layout(const Screen &layout_) {
+            layout = layout_;
 
             return *this;
         }
 
         Encoder *build() override {
-            if (id == std::numeric_limits<uint32_t>::max())
+            if (layout.id == INVALID_ID)
                 throw std::runtime_error("Encoder does not have a valid id");
 
             if (!conn)
@@ -76,9 +85,9 @@ namespace rfb {
                 if (!ffmpeg)
                     throw std::runtime_error("FFmpeg is required");
 
-                return new T(id, *ffmpeg, conn, frame_rate, bit_rate);
+                return new T(layout, *ffmpeg, conn, encoder, params);
             } else {
-                return new T(conn, frame_rate, bit_rate);
+                return new T(conn, encoder, params);
             }
         }
     };
@@ -87,25 +96,25 @@ namespace rfb {
     using H264VAAPIEncoderBuilder = H264EncoderBuilder<H264VAAPIEncoder>;
     using H264SoftwareEncoderBuilder = H264EncoderBuilder<H264SoftwareEncoder>;
 
-    Encoder *create_encoder(uint32_t id, const FFmpeg *ffmpeg, KasmVideoEncoders::Encoder video_encoder, SConnection *conn,
-                            uint8_t frame_rate, uint16_t bit_rate) {
+    Encoder *create_encoder(const Screen &layout, const FFmpeg *ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder video_encoder,
+                            VideoEncoderParams params) {
         switch (video_encoder) {
             case KasmVideoEncoders::Encoder::h264_vaapi:
                 // return
                 // H264VAAPIEncoderBuilder::create().with_connection(conn).with_frame_rate(frame_rate).with_bit_rate(bit_rate).build();
             case KasmVideoEncoders::Encoder::h264_ffmpeg_vaapi:
                 return H264FFMPEGVAAPIEncoderBuilder::create(ffmpeg)
-                        .with_id(id)
+                        .with_layout(layout)
                         .with_connection(conn)
-                        .with_frame_rate(frame_rate)
-                        .with_bit_rate(bit_rate)
+                        .with_encoder(video_encoder)
+                        .with_params(params)
                         .build();
             default:
                 return H264SoftwareEncoderBuilder::create(ffmpeg)
-                        .with_id(id)
+                        .with_layout(layout)
                         .with_connection(conn)
-                        .with_frame_rate(frame_rate)
-                        .with_bit_rate(bit_rate)
+                        .with_encoder(video_encoder)
+                        .with_params(params)
                         .build();
         }
     }

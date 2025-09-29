@@ -7,22 +7,22 @@
 
 namespace rfb {
     ScreenEncoderManager::ScreenEncoderManager(const FFmpeg &ffmpeg_, KasmVideoEncoders::Encoder encoder,
-                                               const std::vector<KasmVideoEncoders::Encoder>& encoders, SConnection *conn, uint8_t frame_rate,
-                                               uint16_t bit_rate) :
+                                               const std::vector<KasmVideoEncoders::Encoder> &encoders, SConnection *conn,
+                                               VideoEncoderParams params) :
         Encoder(conn, encodingKasmVideo, static_cast<EncoderFlags>(EncoderUseNativePF | EncoderLossy), -1), ffmpeg(ffmpeg_),
-        frame_rate(frame_rate), bit_rate(bit_rate), base_video_encoder(encoder), available_encoders(encoders) {}
+        current_params(params), base_video_encoder(encoder), available_encoders(encoders) {}
 
     ScreenEncoderManager::~ScreenEncoderManager() = default;
 
-    Encoder *ScreenEncoderManager::add_screen(uint32_t id) const {
+    Encoder *ScreenEncoderManager::add_screen(const Screen &layout) const {
         Encoder *encoder{};
         try {
-            encoder = create_encoder(id, &ffmpeg, base_video_encoder, conn, frame_rate, bit_rate);
+            encoder = create_encoder(layout, &ffmpeg, conn, base_video_encoder, current_params);
         } catch (const std::exception &e) {
             if (base_video_encoder != KasmVideoEncoders::Encoder::h264_software) {
                 vlog.error("Attempting fallback to software encoder due to error: %s", e.what());
                 try {
-                    encoder = create_encoder(id, &ffmpeg, KasmVideoEncoders::Encoder::h264_software, conn, frame_rate, bit_rate);
+                    encoder = create_encoder(layout, &ffmpeg, conn, KasmVideoEncoders::Encoder::h264_software, current_params);
                 } catch (const std::exception &exception) {
                     vlog.error("Failed to create software encoder: %s", exception.what());
                 }
@@ -51,23 +51,26 @@ namespace rfb {
     }
 
     void ScreenEncoderManager::sync_layout(const ScreenSet &layout) {
-        const auto count = layout.num_screens();
-        const auto encoder_size = encoders.size();
+        const auto new_count = layout.num_screens();
+        const auto current_count = static_cast<int>(encoders.size());
+        const auto min_count = std::min(new_count, current_count);
 
-        for (int i = 0; i < count; ++i) {
-            const auto &screen = layout.screens[i];
-
-        }
-        for (int i = 0; auto &screen: layout) {
-            const auto encoder = encoders[i];
-            const auto video_encoder = reinterpret_cast<VideoEncoder *>(encoder);
-            assert(video_encoder);
-
-            if (video_encoder->getId() != screen.id) {
-                delete encoder;
-                encoders[i] = add_screen(screen.id);
+        for (size_t i = 0; i < min_count; ++i) {
+            auto *encoder = encoders[i];
+            if (!encoder || layout.screens[i].id != encoder->getId()) {
+                delete encoders[i];
+                encoders[i] = add_screen(layout.screens[i]);
             }
-            ++i;
+        }
+
+        if (new_count < current_count) {
+            encoders.erase(encoders.begin() + new_count, encoders.end());
+        } else if (new_count > current_count) {
+            encoders.reserve(new_count);
+
+            for (size_t i = current_count; i < new_count; ++i) {
+                encoders.emplace_back(add_screen(layout.screens[i]));
+            }
         }
     }
 
