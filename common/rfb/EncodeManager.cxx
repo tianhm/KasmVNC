@@ -48,7 +48,6 @@
 #include "encoders/EncoderProbe.h"
 #include "encoders/ScreenEncoderManager.h"
 #include "encoders/VideoEncoder.h"
-#include "encoders/VideoEncoderFactory.h"
 
 using namespace rfb;
 
@@ -184,8 +183,17 @@ EncodeManager::EncodeManager(SConnection *conn_, EncCache *encCache_, const FFmp
     encoders[encoderTightQOI] = new TightQOIEncoder(conn);
     encoders[encoderZRLE] = new ZRLEEncoder(conn);
 
-    if (ffmpeg_available)
-        encoders[encoderKasmVideo] = new ScreenEncoderManager(ffmpeg, video_encoders::best_encoder, video_encoders::available_encoders, conn,Server::frameRate, Server::videoBitrate);
+    if (ffmpeg_available) {
+        encoders[encoderKasmVideo] = new ScreenEncoderManager(ffmpeg,
+                                                              video_encoders::best_encoder,
+                                                              video_encoders::available_encoders,
+                                                              conn,
+                                                              {conn_->cp.width,
+                                                               conn_->cp.height,
+                                                               static_cast<uint8_t>(Server::frameRate),
+                                                               static_cast<uint8_t>(Server::groupOfPicture),
+                                                               static_cast<uint8_t>(Server::videoQualityCRFCQP)});
+    }
 
     video_mode_available = ffmpeg_available && Server::videoCodec[0];
 
@@ -355,7 +363,7 @@ void EncodeManager::writeLosslessRefresh(const Region& req,  const ScreenSet &la
                                          const RenderedCursor* renderedCursor,
                                          size_t maxUpdateSize)
 {
-    if (videoDetected)
+    if (videoDetected || video_mode_available)
         return;
 
     doUpdate(false, getLosslessRefresh(req, maxUpdateSize),
@@ -438,10 +446,19 @@ void EncodeManager::doUpdate(bool allowLossy, const Region& changed_,
          endRect(STARTRECT_OVERRIDE_KASMVIDEO);
      }*/
 
-    if (videoDetected) {
-        auto *encoder = startRect(pb->getRect(), encoderFullColour, true, STARTRECT_OVERRIDE_KASMVIDEO);
-        encoder->writeRect(pb, Palette());
-        endRect(STARTRECT_OVERRIDE_KASMVIDEO);
+    if (video_mode_available) {
+        auto *screen_encoder_manager = dynamic_cast<ScreenEncoderManager *>(encoders[encoderKasmVideo]);
+        if (screen_encoder_manager) {
+            screen_encoder_manager->sync_layout(layout);
+
+            for (auto screen_encoder: *screen_encoder_manager) {
+                uint32_t screen_id = screen_encoder->getId();
+                auto *encoder = startRect(pb->getRect(), encoderFullColour, true, STARTRECT_OVERRIDE_KASMVIDEO);
+                screen_encoder->writeRect(pb, Palette());
+                endRect(STARTRECT_OVERRIDE_KASMVIDEO);
+            }
+        }
+
         std::vector<Rect> rects;
         changed.get_rects(&rects);
         updateVideoStats(rects, pb);
