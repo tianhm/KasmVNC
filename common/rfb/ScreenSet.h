@@ -38,7 +38,7 @@ namespace rfb {
     // coordinates, an id and flags.
 
     struct Screen {
-        Screen() : id(0), flags(0) {};
+        Screen() = default;
         Screen(uint32_t id_, int x_, int y_, int w_, int h_, uint32_t flags_) :
             id(id_), dimensions(x_, y_, x_ + w_, y_ + h_), flags(flags_) {};
 
@@ -52,9 +52,9 @@ namespace rfb {
             return true;
         }
 
-        uint32_t id;
+        uint32_t id{};
         Rect dimensions;
-        uint32_t flags;
+        uint32_t flags{};
     };
 
     // rfb::ScreenSet
