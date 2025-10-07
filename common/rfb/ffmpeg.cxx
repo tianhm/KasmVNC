@@ -78,7 +78,9 @@ FFmpeg::FFmpeg() {
         av_frame_alloc_f = D_LOOKUP_SYM(handle, av_frame_alloc);
         av_frame_unref_f = D_LOOKUP_SYM(handle, av_frame_unref);
         av_frame_get_buffer_f = D_LOOKUP_SYM(handle, av_frame_get_buffer);
+        av_opt_next_f = D_LOOKUP_SYM(handle, av_opt_next);
         av_opt_set_f = D_LOOKUP_SYM(handle, av_opt_set);
+        av_opt_set_int_f = D_LOOKUP_SYM(handle, av_opt_set_int);
         av_buffer_unref_f = D_LOOKUP_SYM(handle, av_buffer_unref);
         av_hwdevice_ctx_create_f = D_LOOKUP_SYM(handle, av_hwdevice_ctx_create);
         av_hwframe_ctx_alloc_f = D_LOOKUP_SYM(handle, av_hwframe_ctx_alloc);
@@ -116,6 +118,7 @@ FFmpeg::FFmpeg() {
         av_packet_unref_f = D_LOOKUP_SYM(handle, av_packet_unref);
         avcodec_flush_buffers_f = D_LOOKUP_SYM(handle, avcodec_flush_buffers);
         avcodec_close_f = D_LOOKUP_SYM(handle, avcodec_close);
+        av_codec_is_encoder_f = D_LOOKUP_SYM(handle, av_codec_is_encoder);
         av_packet_alloc_f = D_LOOKUP_SYM(handle, av_packet_alloc);
         av_packet_free_f = D_LOOKUP_SYM(handle, av_packet_free);
 
