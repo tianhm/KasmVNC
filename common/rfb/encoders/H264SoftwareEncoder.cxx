@@ -155,6 +155,10 @@ namespace rfb {
         ctx->time_base = {1, params.frame_rate};
         ctx->framerate = {params.frame_rate, 1};
         ctx->gop_size = params.group_of_picture; // interval between I-frames
+        ctx->width = current_params.width;
+        ctx->height = current_params.height;
+        ctx->coded_width = current_params.width;
+        ctx->coded_height = current_params.height;
         //  best
         // ctx->pix_fmt = AV_PIX_FMT_YUV444P; // AV_PIX_FMT_YUV420P;
         ctx->pix_fmt = AV_PIX_FMT_YUV420P;
@@ -172,10 +176,6 @@ namespace rfb {
         // // Preset: speed vs. compression efficiency
         // if (ffmpeg.av_opt_set(ctx->priv_data, "preset", "medium", 0) != 0)
         //     return false;
-
-        if (ffmpeg.av_opt_set(ctx->priv_data, "async_depth", "1", 0) < 0) {
-            vlog.info("Cannot set async_depth");
-        }
 
         if (ffmpeg.av_opt_set(ctx->priv_data, "tune", "zerolatency", 0) < 0) {
             vlog.info("Cannot set tune to zerolatency");
@@ -205,11 +205,6 @@ namespace rfb {
         // H.264 profile for better compression
         // if (ffmpeg.av_opt_set(ctx->priv_data, "profile", "high", 0) != 0)
         //     throw std::runtime_error("Could not set codec setting");
-
-        ctx_guard->width = current_params.width;
-        ctx_guard->height = current_params.height;
-        ctx_guard->coded_width = current_params.width;
-        ctx_guard->coded_height = current_params.height;
 
         auto *sws_ctx = ffmpeg.sws_getContext(width,
                                               height,
