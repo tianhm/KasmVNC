@@ -79,8 +79,10 @@ namespace rfb {
         ctx->gop_size = current_params.group_of_picture; // interval between I-frames
         ctx->max_b_frames = 0; // No B-frames for immediate output
         ctx->pix_fmt = AV_PIX_FMT_VAAPI;
-        ctx->width = current_params.width;
-        ctx->height = current_params.height;
+        ctx_guard->width = current_params.width;
+        ctx_guard->height = current_params.height;
+        ctx_guard->coded_width = current_params.width;
+        ctx_guard->coded_height = current_params.height;
         ctx->delay = 0;
         ctx->flags |= AV_CODEC_FLAG_LOW_DELAY;
 
@@ -88,12 +90,12 @@ namespace rfb {
             vlog.info("Cannot set async_depth");
         }
 
-        if (ffmpeg.av_opt_set_int(ctx->priv_data, "ICQ", current_params.quality, 0) < 0) {
-            vlog.info("Cannot set ICQ");
+        if (ffmpeg.av_opt_set(ctx->priv_data, "rc_mode", "CQP", 0) < 0) {
+            vlog.info("Cannot set rc_mode");
+        }
 
-            if (ffmpeg.av_opt_set_int(ctx->priv_data, "CQP", current_params.quality, 0) < 0) {
-                vlog.info("Cannot set CQP");
-            }
+        if (ffmpeg.av_opt_set_int(ctx->priv_data, "qp", current_params.quality, 0) < 0) {
+            vlog.info("Cannot set qp");
         }
 
         auto *hw_frames_ctx = ffmpeg.av_hwframe_ctx_alloc(hw_device_ctx_guard.get());
