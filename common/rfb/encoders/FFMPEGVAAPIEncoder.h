@@ -7,7 +7,7 @@
 #include "rfb/ffmpeg.h"
 
 namespace rfb {
-class H264FFMPEGVAAPIEncoder final : public Encoder, public VideoEncoder {
+class FFMPEGVAAPIEncoder final : public Encoder, public VideoEncoder {
     Screen layout;
     const FFmpeg &ffmpeg;
 
@@ -32,7 +32,7 @@ class H264FFMPEGVAAPIEncoder final : public Encoder, public VideoEncoder {
 
     template<typename T>
     friend class H264EncoderBuilder;
-    H264FFMPEGVAAPIEncoder(Screen layout, const FFmpeg &ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder encoder,
+    FFMPEGVAAPIEncoder(Screen layout, const FFmpeg &ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder encoder,
                            VideoEncoderParams params);
 
 public:

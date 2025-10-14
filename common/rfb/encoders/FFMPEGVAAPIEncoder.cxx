@@ -1,4 +1,4 @@
-#include "H264FFMPEGVAAPIEncoder.h"
+#include "FFMPEGVAAPIEncoder.h"
 
 #include <fmt/format.h>
 #include <rfb/ServerCore.h>
@@ -13,10 +13,10 @@ extern "C" {
 #include "KasmVideoConstants.h"
 #include "rfb/encodings.h"
 
-static rfb::LogWriter vlog("H264FFMPEGVAAPIEncoder");
+static rfb::LogWriter vlog("FFMPEGVAAPIEncoder");
 
 namespace rfb {
-    H264FFMPEGVAAPIEncoder::H264FFMPEGVAAPIEncoder(Screen layout_, const FFmpeg &ffmpeg_, SConnection *conn,
+    FFMPEGVAAPIEncoder::FFMPEGVAAPIEncoder(Screen layout_, const FFmpeg &ffmpeg_, SConnection *conn,
                                                    KasmVideoEncoders::Encoder encoder_, VideoEncoderParams params) :
         Encoder(layout_.id, conn, encodingKasmVideo, static_cast<EncoderFlags>(EncoderUseNativePF | EncoderLossy), -1), layout(layout_),
         ffmpeg(ffmpeg_), encoder(encoder_), current_params(params) {
@@ -46,7 +46,7 @@ namespace rfb {
         pkt_guard.reset(pkt);
     }
 
-    void H264FFMPEGVAAPIEncoder::write_compact(rdr::OutStream *os, int value) {
+    void FFMPEGVAAPIEncoder::write_compact(rdr::OutStream *os, int value) {
         auto b = value & 0x7F;
         if (value <= 0x7F) {
             os->writeU8(b);
@@ -62,7 +62,7 @@ namespace rfb {
         }
     }
 
-    bool H264FFMPEGVAAPIEncoder::init(int width, int height, VideoEncoderParams params) {
+    bool FFMPEGVAAPIEncoder::init(int width, int height, VideoEncoderParams params) {
         current_params = params;
         AVHWFramesContext *frames_ctx{};
         int err{};
@@ -167,11 +167,11 @@ namespace rfb {
         return true;
     }
 
-    bool H264FFMPEGVAAPIEncoder::isSupported() {
+    bool FFMPEGVAAPIEncoder::isSupported() {
         return conn->cp.supportsEncoding(encodingKasmVideo);
     }
 
-    void H264FFMPEGVAAPIEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) {
+    void FFMPEGVAAPIEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) {
         // compress
         int stride;
         const auto rect = layout.dimensions;
@@ -212,7 +212,7 @@ namespace rfb {
         const int src_line_size[1] = {stride * bpp}; // RGB has bpp bytes per pixel
 
         int err{};
-        if (err = ffmpeg.sws_scale(sws_guard.get(), src_data, src_line_size, 0, dst_height, frame->data, frame->linesize); err < 0) {
+        if (err = ffmpeg.sws_scale(sws_guard.get(), src_data, src_line_size, 0, height, frame->data, frame->linesize); err < 0) {
             vlog.error("Error (%s) while scaling image. Error code: %d", ffmpeg.get_error_description(err).c_str(), err);
             return;
         }
@@ -256,9 +256,9 @@ namespace rfb {
         ffmpeg.av_packet_unref(pkt);
     }
 
-    void H264FFMPEGVAAPIEncoder::writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) {}
+    void FFMPEGVAAPIEncoder::writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) {}
 
-    void H264FFMPEGVAAPIEncoder::writeSkipRect() {
+    void FFMPEGVAAPIEncoder::writeSkipRect() {
         auto *os = conn->getOutStream(conn->cp.supportsUdp);
         os->writeU8(kasmVideoSkip << 4);
     }
