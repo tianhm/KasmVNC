@@ -1,4 +1,4 @@
-#include "H264VAAPIEncoder.h"
+#include "VAAPIEncoder.h"
 
 #include <fcntl.h>
 #include <fmt/format.h>
@@ -49,7 +49,7 @@ using version_handler = std::unique_ptr<drmVersion, decltype([](drmVersionPtr pt
 static rfb::LogWriter vlog("H264VAAPIEncoder");
 
 namespace rfb {
-    H264VAAPIEncoder::H264VAAPIEncoder(uint32_t id, SConnection *conn, uint8_t frame_rate_,
+    VAAPIEncoder::VAAPIEncoder(uint32_t id, SConnection *conn, uint8_t frame_rate_,
                                        uint16_t bit_rate_) : Encoder(conn, encodingKasmVideo,
                                                                      static_cast<EncoderFlags>(
                                                                          EncoderUseNativePF | EncoderLossy), -1),
@@ -167,7 +167,7 @@ namespace rfb {
         pkt_guard.reset(pkt);*/
     }
 
-    void H264VAAPIEncoder::write_compact(rdr::OutStream *os, int value) {
+    void VAAPIEncoder::write_compact(rdr::OutStream *os, int value) {
         auto b = value & 0x7F;
         if (value <= 0x7F) {
             os->writeU8(b);
@@ -183,7 +183,7 @@ namespace rfb {
         }
     }
 
-    bool H264VAAPIEncoder::init(int width, int height, int dst_width, int dst_height) {
+    bool VAAPIEncoder::init(int width, int height, int dst_width, int dst_height) {
         VAStatus va_status = vaCreateSurfaces(dpy, VA_RT_FORMAT_RGB32, width, height, &rgb_surface, 1,
                                               &surface_attribs[0], 1);
         if (va_status != VA_STATUS_SUCCESS) {
@@ -259,11 +259,11 @@ namespace rfb {
         return true;*/
     }
 
-    bool H264VAAPIEncoder::isSupported() {
+    bool VAAPIEncoder::isSupported() {
         return conn->cp.supportsEncoding(encodingKasmVideo);
     }
 
-    void H264VAAPIEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) {
+    void VAAPIEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) {
         // compress
         /*int stride;
         const auto rect = pb->getRect();
@@ -339,10 +339,10 @@ namespace rfb {
         ffmpeg.av_packet_unref(pkt);*/
     }
 
-    void H264VAAPIEncoder::writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) {
+    void VAAPIEncoder::writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) {
     }
 
-    void H264VAAPIEncoder::writeSkipRect() {
+    void VAAPIEncoder::writeSkipRect() {
         auto *os = conn->getOutStream(conn->cp.supportsUdp);
         os->writeU8(kasmVideoSkip << 4);
     }

@@ -1,4 +1,4 @@
-#include "H264SoftwareEncoder.h"
+#include "SoftwareEncoder.h"
 extern "C" {
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
@@ -13,7 +13,7 @@ extern "C" {
 static rfb::LogWriter vlog("H264SoftwareEncoder");
 
 namespace rfb {
-    H264SoftwareEncoder::H264SoftwareEncoder(Screen layout_, const FFmpeg &ffmpeg_, SConnection *conn, KasmVideoEncoders::Encoder encoder_,
+    SoftwareEncoder::SoftwareEncoder(Screen layout_, const FFmpeg &ffmpeg_, SConnection *conn, KasmVideoEncoders::Encoder encoder_,
                                              VideoEncoderParams params) :
         Encoder(conn, encodingKasmVideo, static_cast<EncoderFlags>(EncoderUseNativePF | EncoderLossy), -1), layout(layout_),
         ffmpeg(ffmpeg_), encoder(encoder_), current_params(params) {
@@ -34,11 +34,11 @@ namespace rfb {
         pkt_guard.reset(pkt);
     }
 
-    bool H264SoftwareEncoder::isSupported() {
+    bool SoftwareEncoder::isSupported() {
         return conn->cp.supportsEncoding(encodingKasmVideo);
     }
 
-    void H264SoftwareEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) {
+    void SoftwareEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) {
         // compress
         int stride;
 
@@ -119,14 +119,14 @@ namespace rfb {
         ffmpeg.av_packet_unref(pkt);
     }
 
-    void H264SoftwareEncoder::writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) {}
+    void SoftwareEncoder::writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) {}
 
-    void H264SoftwareEncoder::writeSkipRect() {
+    void SoftwareEncoder::writeSkipRect() {
         auto *os = conn->getOutStream(conn->cp.supportsUdp);
         os->writeU8(kasmVideoSkip << 4);
     }
 
-    void H264SoftwareEncoder::write_compact(rdr::OutStream *os, int value) {
+    void SoftwareEncoder::write_compact(rdr::OutStream *os, int value) {
         auto b = value & 0x7F;
         if (value <= 0x7F) {
             os->writeU8(b);
@@ -142,7 +142,7 @@ namespace rfb {
         }
     }
 
-    bool H264SoftwareEncoder::init(int width, int height, VideoEncoderParams params) {
+    bool SoftwareEncoder::init(int width, int height, VideoEncoderParams params) {
         current_params = params;
         printf("FRAME RESIZE!!!!!!!!!!!!!!!!!!\n");
 

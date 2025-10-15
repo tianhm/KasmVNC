@@ -31,7 +31,7 @@ class FFMPEGVAAPIEncoder final : public Encoder, public VideoEncoder {
     [[nodiscard]] bool init(int width, int height, VideoEncoderParams params);
 
     template<typename T>
-    friend class H264EncoderBuilder;
+    friend class EncoderBuilder;
     FFMPEGVAAPIEncoder(Screen layout, const FFmpeg &ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder encoder,
                            VideoEncoderParams params);
 

@@ -1,15 +1,15 @@
 #include "VideoEncoderFactory.h"
 
 #include <cstdint>
-#include "H264FFMPEGVAAPIEncoder.h"
-#include "H264SoftwareEncoder.h"
-#include "H264VAAPIEncoder.h"
+#include "FFMPEGVAAPIEncoder.h"
+#include "SoftwareEncoder.h"
+#include "VAAPIEncoder.h"
 
 namespace rfb {
-    class EncoderBuilder {
+    class EncoderBuilderBase {
     public:
         virtual Encoder *build() = 0;
-        virtual ~EncoderBuilder() = default;
+        virtual ~EncoderBuilderBase() = default;
     };
 
     template<typename T>
@@ -18,57 +18,57 @@ namespace rfb {
     };
 
     template<>
-    struct is_ffmpeg_based<H264VAAPIEncoder> {
+    struct is_ffmpeg_based<VAAPIEncoder> {
         static constexpr auto value = false;
     };
 
     template<typename T>
-    class H264EncoderBuilder : public EncoderBuilder {
+    class EncoderBuilder : public EncoderBuilderBase {
         static constexpr uint32_t INVALID_ID{std::numeric_limits<uint32_t>::max()};
         Screen layout{};
         const FFmpeg *ffmpeg{};
         KasmVideoEncoders::Encoder encoder{};
         VideoEncoderParams params{};
         SConnection *conn{};
-        explicit H264EncoderBuilder(const FFmpeg *ffmpeg_) : ffmpeg(ffmpeg_) {
+        explicit EncoderBuilder(const FFmpeg *ffmpeg_) : ffmpeg(ffmpeg_) {
             layout.id = INVALID_ID;
         }
-        H264EncoderBuilder() = default;
+        EncoderBuilder() = default;
 
     public:
-        static H264EncoderBuilder create(const FFmpeg *ffmpeg) {
-            return H264EncoderBuilder{ffmpeg};
+        static EncoderBuilder create(const FFmpeg *ffmpeg) {
+            return EncoderBuilder{ffmpeg};
         }
 
-        static H264EncoderBuilder create() {
-            return H264EncoderBuilder{};
+        static EncoderBuilder create() {
+            return EncoderBuilder{};
         }
 
-        H264EncoderBuilder &with_params(VideoEncoderParams value) {
+        EncoderBuilder &with_params(VideoEncoderParams value) {
             params = value;
 
             return *this;
         }
 
-        H264EncoderBuilder &with_encoder(KasmVideoEncoders::Encoder value) {
+        EncoderBuilder &with_encoder(KasmVideoEncoders::Encoder value) {
             encoder = value;
 
             return *this;
         }
 
-        H264EncoderBuilder &with_connection(SConnection *value) {
+        EncoderBuilder &with_connection(SConnection *value) {
             conn = value;
 
             return *this;
         }
 
-        H264EncoderBuilder &with_id(uint32_t value) {
+        EncoderBuilder &with_id(uint32_t value) {
             layout.id = value;
 
             return *this;
         }
 
-        H264EncoderBuilder &with_layout(const Screen &layout_) {
+        EncoderBuilder &with_layout(const Screen &layout_) {
             layout = layout_;
 
             return *this;
@@ -92,9 +92,9 @@ namespace rfb {
         }
     };
 
-    using H264FFMPEGVAAPIEncoderBuilder = H264EncoderBuilder<H264FFMPEGVAAPIEncoder>;
-    using H264VAAPIEncoderBuilder = H264EncoderBuilder<H264VAAPIEncoder>;
-    using H264SoftwareEncoderBuilder = H264EncoderBuilder<H264SoftwareEncoder>;
+    using FFMPEGVAAPIEncoderBuilder = EncoderBuilder<FFMPEGVAAPIEncoder>;
+    using VAAPIEncoderBuilder = EncoderBuilder<VAAPIEncoder>;
+    using SoftwareEncoderBuilder = EncoderBuilder<SoftwareEncoder>;
 
     Encoder *create_encoder(const Screen &layout, const FFmpeg *ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder video_encoder,
                             VideoEncoderParams params) {
@@ -103,14 +103,14 @@ namespace rfb {
                 // return
                 // H264VAAPIEncoderBuilder::create().with_connection(conn).with_frame_rate(frame_rate).with_bit_rate(bit_rate).build();
             case KasmVideoEncoders::Encoder::h264_ffmpeg_vaapi:
-                return H264FFMPEGVAAPIEncoderBuilder::create(ffmpeg)
+                return FFMPEGVAAPIEncoderBuilder::create(ffmpeg)
                         .with_layout(layout)
                         .with_connection(conn)
                         .with_encoder(video_encoder)
                         .with_params(params)
                         .build();
             default:
-                return H264SoftwareEncoderBuilder::create(ffmpeg)
+                return SoftwareEncoderBuilder::create(ffmpeg)
                         .with_layout(layout)
                         .with_connection(conn)
                         .with_encoder(video_encoder)

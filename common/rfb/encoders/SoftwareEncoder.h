@@ -7,7 +7,7 @@
 #include "rfb/ffmpeg.h"
 
 namespace rfb {
-    class H264SoftwareEncoder final : public Encoder, public VideoEncoder {
+    class SoftwareEncoder final : public Encoder, public VideoEncoder {
         Screen layout;
         const FFmpeg &ffmpeg;
         const AVCodec *codec{};
@@ -26,8 +26,8 @@ namespace rfb {
         [[nodiscard]] bool init(int width, int height, VideoEncoderParams params);
 
         template<typename T>
-        friend class H264EncoderBuilder;
-        H264SoftwareEncoder(Screen layout, const FFmpeg &ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder encoder,
+        friend class EncoderBuilder;
+        SoftwareEncoder(Screen layout, const FFmpeg &ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder encoder,
                             VideoEncoderParams params);
     public:
         bool isSupported() override;
