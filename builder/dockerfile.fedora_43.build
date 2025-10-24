@@ -77,8 +77,7 @@ RUN \
     libavformat-free-devel \
     libswscale-free-devel \
     libvpx-devel \
-    libva-devel \
-    intel-media-driver
+    libva-devel
 
 ENV SCRIPTS_DIR=/tmp/scripts
 COPY builder/scripts $SCRIPTS_DIR

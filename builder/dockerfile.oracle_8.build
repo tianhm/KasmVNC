@@ -32,8 +32,7 @@ RUN \
     tigervnc-server \
     wget \
     xorg-x11-font-utils \
-    zlib-devel \
-    intel-media-driver
+    zlib-devel
 
 # Enable additional repos (epel, powertools, and fusion)
 RUN dnf config-manager --set-enabled ol8_codeready_builder

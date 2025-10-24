@@ -71,8 +71,7 @@ RUN \
     xorg-server-dev \
     xtrans \
     ffmpeg-dev \
-    libdrm-dev \
-    intel-media-driver
+    libdrm-dev
 
 ENV SCRIPTS_DIR=/tmp/scripts
 COPY builder/scripts $SCRIPTS_DIR
