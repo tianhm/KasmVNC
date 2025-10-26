@@ -20,9 +20,8 @@ RUN sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 \
     --slave /usr/bin/gcov gcov /usr/bin/gcov-10
 
 # x86_64 specific operations
-RUN ARCH=$(arch) && \
-    if [ "$ARCH" = x86_64" ]; then \
-        apt-get install intel-media-va-driver-non-free \
+RUN if [ "$(arch)" = "x86_64" ]; then \
+        apt-get update && apt-get install -y intel-media-va-driver-non-free; \
     fi
 
 ENV SCRIPTS_DIR=/tmp/scripts
