@@ -147,11 +147,13 @@ namespace rfb {
 
     bool SoftwareEncoder::init(int width, int height, VideoEncoderParams params) {
         current_params = params;
-        printf("FRAME RESIZE!!!!!!!!!!!!!!!!!!\n");
+        vlog.debug("FRAME RESIZE (%d, %d): RATE: %d, GOP: %d, QUALITY: %d", width, height, current_params.frame_rate, current_params.group_of_picture, current_params.quality);
 
         auto *ctx = ffmpeg.avcodec_alloc_context3(codec);
-        if (!ctx)
+        if (!ctx) {
+            vlog.error("Cannot allocate AVCodecContext");
             return false;
+        }
 
         ctx_guard.reset(ctx);
 
@@ -219,6 +221,10 @@ namespace rfb {
                                               nullptr,
                                               nullptr,
                                               nullptr);
+        if (!sws_ctx) {
+            vlog.error("Could not initialize the conversion context");
+            return false;
+        }
 
         sws_guard.reset(sws_ctx);
 

@@ -68,6 +68,8 @@ namespace rfb {
         AVHWFramesContext *frames_ctx{};
         int err{};
 
+        vlog.debug("FRAME RESIZE (%d, %d): RATE: %d, GOP: %d, QUALITY: %d", width, height, current_params.frame_rate, current_params.group_of_picture, current_params.quality);
+
         auto *ctx = ffmpeg.avcodec_alloc_context3(codec);
         if (!ctx) {
             vlog.error("Cannot allocate AVCodecContext");
@@ -162,6 +164,10 @@ namespace rfb {
 
         auto *sws_ctx = ffmpeg.sws_getContext(
             width, height, AV_PIX_FMT_RGB32, params.width, params.height, AV_PIX_FMT_NV12, SWS_BILINEAR, nullptr, nullptr, nullptr);
+        if (!sws_ctx) {
+            vlog.error("Could not initialize the conversion context");
+            return false;
+        }
 
         sws_guard.reset(sws_ctx);
 
