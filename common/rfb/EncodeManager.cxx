@@ -1347,13 +1347,10 @@ void EncodeManager::writeRects(const Region& changed, const PixelBuffer* pb,
 
   if (webpTookTooLong.load(std::memory_order_relaxed))
     activeEncoders[encoderFullColour] = encoderTightJPEG;
-  //if (ffmpeg_available && videoDetected && video_mode_available)
-  //  activeEncoders[encoderFullColour] = encoderKasmVideo;
 
   for (uint32_t i = 0; i < subrects_size; ++i) {
     if (encCache->enabled && !compresseds[i].empty() && !fromCache[i] &&
-    !encoders[encoderTightQOI]->isSupported() &&
-    activeEncoders[encoderFullColour] != encoderKasmVideo) {
+    !encoders[encoderTightQOI]->isSupported()) {
       void *tmp = malloc(compresseds[i].size());
       memcpy(tmp, &compresseds[i][0], compresseds[i].size());
       encCache->add(isWebp[i] ? encoderTightWEBP : encoderTightJPEG,
@@ -1520,9 +1517,6 @@ void EncodeManager::writeSubRect(const Rect& rect, const PixelBuffer *pb,
       jpegstats.area += rect.area();
       jpegstats.rects++;
     }
-    } else if (type == encoderFullColour && activeEncoders[encoderFullColour] == encoderKasmVideo) {
-        if (auto *video_encoder = dynamic_cast<VideoEncoder*>(encoders[encoderKasmVideo]); video_encoder)
-            video_encoder->writeSkipRect();
     } else {
     if (encoder->flags & EncoderUseNativePF) {
       ppb = preparePixelBuffer(rect, pb, false);
