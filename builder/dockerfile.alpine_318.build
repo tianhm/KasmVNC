@@ -30,7 +30,6 @@ RUN \
     libjpeg-turbo-static \
     libpciaccess-dev \
     libtool \
-    libvpx-dev \
     libva-dev \
     libwebp-dev \
     libx11-dev \

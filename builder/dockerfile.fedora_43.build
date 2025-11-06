@@ -76,7 +76,6 @@ RUN \
     xsltproc \
     libavformat-free-devel \
     libswscale-free-devel \
-    libvpx-devel \
     libva-devel
 
 ENV SCRIPTS_DIR=/tmp/scripts

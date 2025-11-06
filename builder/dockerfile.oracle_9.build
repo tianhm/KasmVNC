@@ -53,7 +53,6 @@ RUN dnf install -y \
   libXtst-devel \
   libXcursor-devel \
   libSM-devel \
-  libvpx-devel \
   libva-devel
 
 
