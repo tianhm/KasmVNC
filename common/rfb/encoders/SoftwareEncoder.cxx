@@ -126,7 +126,7 @@ namespace rfb {
 
     void SoftwareEncoder::writeSkipRect() {
         auto *os = conn->getOutStream(conn->cp.supportsUdp);
-        os->writeU8(kasmVideoSkip << 4);
+        os->writeU8(kasmVideoSkip);
     }
 
     void SoftwareEncoder::write_compact(rdr::OutStream *os, int value) {

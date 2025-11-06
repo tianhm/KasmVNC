@@ -80,7 +80,7 @@ namespace rfb {
     static constexpr unsigned int kasmVideoH264 = 0x01 << 4; // H.264 encoding
     static constexpr unsigned int kasmVideoH265 = 0x02 << 4; // H.265 encoding
     static constexpr unsigned int kasmVideoAV1 = 0x03 << 4; // AV1 encoding
-    static constexpr unsigned int kasmVideoSkip = 0x00; // Skip frame
+    static constexpr unsigned int kasmVideoSkip = 0x00 << 4; // Skip frame
 
     static constexpr auto drm_device_paths = std::to_array<std::string_view>({
         "/dev/dri/renderD128",
