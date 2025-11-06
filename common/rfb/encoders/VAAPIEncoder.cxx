@@ -344,7 +344,7 @@ namespace rfb {
 
     void VAAPIEncoder::writeSkipRect() {
         auto *os = conn->getOutStream(conn->cp.supportsUdp);
-        os->writeU8(kasmVideoSkip << 4);
+        os->writeU8(kasmVideoSkip);
     }
 } // namespace rfb
 
