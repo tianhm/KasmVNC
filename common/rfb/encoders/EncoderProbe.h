@@ -12,7 +12,7 @@ namespace rfb::video_encoders {
         FFmpeg &ffmpeg;
 
         explicit EncoderProbe(FFmpeg &ffmpeg);
-
+        void probe();
     public:
         EncoderProbe(const EncoderProbe &) = delete;
         EncoderProbe &operator=(const EncoderProbe &) = delete;

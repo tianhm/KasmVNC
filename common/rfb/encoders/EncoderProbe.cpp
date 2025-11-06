@@ -23,65 +23,73 @@ namespace rfb::video_encoders {
         AVHWDeviceType hw_type;
     };
 
-    static std::array<EncoderCandidate, 6> candidates = {{
-            //{KasmVideoEncoders::Encoder::h264_nvenc, AV_CODEC_ID_H264, AV_HWDEVICE_TYPE_VAAPI}
+    static std::array<EncoderCandidate, 6> candidates = {
+        {
+         //{KasmVideoEncoders::Encoder::h264_nvenc, AV_CODEC_ID_H264, AV_HWDEVICE_TYPE_VAAPI}
             //{KasmVideoEncoders::Encoder::av1_vaapi, AV_CODEC_ID_AV1, AV_HWDEVICE_TYPE_VAAPI},
             //{KasmVideoEncoders::Encoder::hevc_vaapi, AV_CODEC_ID_HEVC, AV_HWDEVICE_TYPE_VAAPI}, // h265
-            {KasmVideoEncoders::Encoder::h264_vaapi, AV_CODEC_ID_H264, AV_HWDEVICE_TYPE_VAAPI},
-            {KasmVideoEncoders::Encoder::h264_software, AV_CODEC_ID_H264, AV_HWDEVICE_TYPE_NONE},
-            {KasmVideoEncoders::Encoder::av1_software, AV_CODEC_ID_AV1, AV_HWDEVICE_TYPE_NONE},
-            {KasmVideoEncoders::Encoder::h265_software, AV_CODEC_ID_HEVC, AV_HWDEVICE_TYPE_NONE},
-    }};
+            EncoderCandidate{KasmVideoEncoders::Encoder::h264_ffmpeg_vaapi, AV_CODEC_ID_H264, AV_HWDEVICE_TYPE_VAAPI},
+         // EncoderCandidate{KasmVideoEncoders::Encoder::h264_software, AV_CODEC_ID_H264, AV_HWDEVICE_TYPE_NONE}
+            //{KasmVideoEncoders::Encoder::av1_software, AV_CODEC_ID_AV1, AV_HWDEVICE_TYPE_NONE},
+            //{KasmVideoEncoders::Encoder::h265_software, AV_CODEC_ID_HEVC, AV_HWDEVICE_TYPE_NONE},
+        }
+    };
 
-    EncoderProbe::EncoderProbe(FFmpeg &ffmpeg_) : ffmpeg(ffmpeg_) {
-        if (ffmpeg.is_available()) {
-            for (const auto &encoder_candidate: candidates) {
-                const AVCodec *codec = ffmpeg.avcodec_find_encoder_by_name(KasmVideoEncoders::to_string(encoder_candidate.encoder).data());
-                if (!codec)
+    EncoderProbe::EncoderProbe(FFmpeg &ffmpeg_) :
+        ffmpeg(ffmpeg_) {
+        if (!ffmpeg.is_available()) {
+            available_encoders.push_back(KasmVideoEncoders::Encoder::unavailable);
+        } else
+            probe();
+
+
+        available_encoders.shrink_to_fit();
+        best_encoder = available_encoders.front();
+    }
+
+    void EncoderProbe::probe() {
+        for (const auto &encoder_candidate: candidates) {
+            const AVCodec *codec = ffmpeg.avcodec_find_encoder_by_name(KasmVideoEncoders::to_string(encoder_candidate.encoder));
+            if (!codec || codec->type != AVMEDIA_TYPE_VIDEO)
+                continue;
+
+            if (encoder_candidate.hw_type != AV_HWDEVICE_TYPE_NONE) {
+                if (!ffmpeg.av_codec_is_encoder(codec))
                     continue;
 
-                if (codec->type != AVMEDIA_TYPE_VIDEO)
-                    continue;
+                FFmpeg::BufferGuard hw_ctx_guard;
+                AVBufferRef *hw_ctx{};
+                hw_ctx_guard.reset(hw_ctx);
 
-                if (encoder_candidate.hw_type != AV_HWDEVICE_TYPE_NONE) {
-                    if (!ffmpeg.av_codec_is_encoder(codec))
+                for (const auto *drm_dev_path: drm_device_paths) {
+                    const auto err = ffmpeg.av_hwdevice_ctx_create(&hw_ctx, encoder_candidate.hw_type, drm_dev_path, nullptr, 0);
+                    if (err < 0) {
+                        puts(ffmpeg.get_error_description(err).c_str());
+
                         continue;
+                    }
+                    drm_device_path = drm_dev_path;
 
-                    FFmpeg::BufferGuard hw_ctx_guard;
-                    AVBufferRef *hw_ctx{};
-                    hw_ctx_guard.reset(hw_ctx);
+                    if (encoder_candidate.hw_type == AV_HWDEVICE_TYPE_VAAPI) {
+                        printf("DEBUG: Codec: %s\n", codec->name);
+                        const FFmpeg::ContextGuard ctx_guard{ffmpeg.avcodec_alloc_context3(codec)};
 
-                    for (auto &drm_dev_path: drm_device_paths) {
-                        const auto err = ffmpeg.av_hwdevice_ctx_create(&hw_ctx, encoder_candidate.hw_type, drm_dev_path.data(), nullptr, 0);
-                        if (err < 0) {
-                            puts(ffmpeg.get_error_description(err).c_str());
-                        } else {
-                            drm_device_path = drm_dev_path;
-
-                            if (encoder_candidate.hw_type == AV_HWDEVICE_TYPE_VAAPI) {
-                                printf("DEBUG: Codec: %s\n", codec->name);
-                                const FFmpeg::ContextGuard ctx_guard{ffmpeg.avcodec_alloc_context3(codec)};
-
-                                const AVOption *opt{};
-                                while (opt = ffmpeg.av_opt_next(ctx_guard->priv_data, opt), opt) {
-                                    printf("DEBUG: Option: %s.%s (help: %s)\n", codec->name, opt->name, opt->help ? opt->help : "n/a");
-                                }
-                            }
-
-                            available_encoders.push_back(encoder_candidate.encoder);
-
-                            break;
+                        const AVOption *opt{};
+                        while (opt = ffmpeg.av_opt_next(ctx_guard->priv_data, opt), opt) {
+                            printf("DEBUG: Option: %s.%s (help: %s)\n", codec->name, opt->name, opt->help ? opt->help : "n/a");
                         }
                     }
+
+                    available_encoders.push_back(encoder_candidate.encoder);
+
+                    break;
                 }
             }
-        } else {
-            available_encoders.push_back(KasmVideoEncoders::Encoder::unavailable);
         }
 
         available_encoders.push_back(KasmVideoEncoders::Encoder::h264_software);
-        available_encoders.shrink_to_fit();
-        best_encoder = available_encoders.front();
+        available_encoders.push_back(KasmVideoEncoders::Encoder::h265_software);
+        // available_encoders.push_back(KasmVideoEncoders::Encoder::av1_software);
     }
 
     /*bool EncoderProbe::is_acceleration_available() {
