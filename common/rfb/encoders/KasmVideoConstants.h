@@ -82,7 +82,7 @@ namespace rfb {
     static constexpr unsigned int kasmVideoAV1 = 0x03 << 4; // AV1 encoding
     static constexpr unsigned int kasmVideoSkip = 0x00 << 4; // Skip frame
 
-    static constexpr auto drm_device_paths = std::to_array<std::string_view>({
+    static constexpr auto drm_device_paths = std::to_array<const char *>({
         "/dev/dri/renderD128",
         "/dev/dri/card0",
         "/dev/dri/renderD129",
@@ -113,7 +113,7 @@ namespace rfb {
 
         using Encoders = std::vector<Encoder>;
 
-        static inline auto EncoderNames = std::to_array<std::string_view>({"av1_vaapi",
+        static inline auto EncoderNames = std::to_array<const char *>({"av1_vaapi",
             "av1_vaapi",
             "av1_nvenc",
             "libsvtav1",
@@ -150,7 +150,7 @@ namespace rfb {
             return encoder != Encoder::h264_software && encoder != Encoder::h265_software && encoder != Encoder::av1_software;
         }
 
-        static std::string_view to_string(Encoder encoder) {
+        static auto to_string(Encoder encoder) {
             return EncoderNames[static_cast<uint8_t>(encoder)];
         }
 
@@ -313,7 +313,7 @@ namespace rfb {
             return MappedCodecs[static_cast<uint8_t>(impl)];
         }
 
-        static std::vector<std::string_view> parse(std::string_view codecs) {
+        static std::vector<std::string_view> parse(const std::string_view codecs) {
             std::vector<std::string_view> result;
 
             if (codecs.empty())
@@ -341,7 +341,7 @@ namespace rfb {
             if (codecs.empty())
                 return {};
 
-            for (auto codec_name: codecs) {
+            for (const auto codec_name: codecs) {
                 const auto codec = get_codec(codec_name);
 
                 switch (codec) {

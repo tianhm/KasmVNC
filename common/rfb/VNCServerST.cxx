@@ -164,7 +164,7 @@ VNCServerST::VNCServerST(const char* name_, SDesktop* desktop_)
             if (!available_accelerators.empty())
                 available_accelerators.append(", ");
 
-            available_accelerators.append(KasmVideoEncoders::to_string(encoder).data());
+            available_accelerators.append(KasmVideoEncoders::to_string(encoder));
         }
     }
 
