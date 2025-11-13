@@ -445,12 +445,6 @@ void EncodeManager::doUpdate(bool allowLossy, const Region& changed_,
             if (screen_encoder_manager->get_encoder() != conn->cp.encoder) {
                 delete encoders[encoderKasmVideo];
 
-                //puts("CHANGING ENCODER!!!");
-                //puts("CHANGING ENCODER!!!");
-                //puts("CHANGING ENCODER!!!");
-                //puts("CHANGING ENCODER!!!");
-                //puts("CHANGING ENCODER!!!");
-
                 encoders[encoderKasmVideo] = new ScreenEncoderManager(ffmpeg,
                                                               conn->cp.encoder,
                                                               video_encoders::available_encoders,
@@ -460,7 +454,6 @@ void EncodeManager::doUpdate(bool allowLossy, const Region& changed_,
                                                                static_cast<uint8_t>(Server::frameRate),
                                                                static_cast<uint8_t>(Server::groupOfPicture),
                                                                static_cast<uint8_t>(Server::videoQualityCRFCQP)});
-
             }
             screen_encoder_manager->sync_layout(layout);
 
@@ -479,10 +472,6 @@ void EncodeManager::doUpdate(bool allowLossy, const Region& changed_,
         std::vector<Rect> rects;
         changed.get_rects(&rects);
         updateVideoStats(rects, pb);
-
-        auto end = msSince(&start) - begin;
-
-        printf("ENCODING TOOK: %d ms\n", end);
     } else {
         /*
          * We start by searching for solid rects, which are then removed
@@ -719,14 +708,6 @@ int EncodeManager::computeNumRects(const Region& changed)
 }
 
 Encoder *EncodeManager::startRect(const Rect &rect, int type, const bool trackQuality, const startRectOverride overrider) {
-    printf("startRect (%d %d %d %d), type: %s, overrider: %d\n",
-           rect.tl.x,
-           rect.tl.y,
-           rect.br.x,
-           rect.br.y,
-           encoderTypeName(EncoderType(type)),
-           overrider);
-
     activeType = type;
 
     int klass;
