@@ -1,6 +1,4 @@
-#!/usr/bin/ruby
-
-which ruby
+#!/usr/bin/env ruby.
 
 package_name = ARGV.first
 
