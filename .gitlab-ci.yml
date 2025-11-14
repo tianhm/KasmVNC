@@ -90,13 +90,6 @@ stages:
         GROUP: 16
 
 default:
-  retry: 2
-  tags:
-    - oci-fixed-amd
-
-functional_test:
-  stage: functional_test
-  image: $DEBIAN_STABLE_IMAGE
   tags:
     - oci-fixed-amd
   before_script:
