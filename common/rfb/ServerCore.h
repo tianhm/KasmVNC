@@ -70,7 +70,7 @@ namespace rfb {
         static IntParameter videoScaling;
         static IntParameter videoQualityCRFCQP;
         static IntParameter groupOfPicture;
-        static StringParameter hwAccelDevice;
+        static StringParameter driNode;
         static IntParameter udpFullFrameFrequency;
         static IntParameter udpPort;
         static StringParameter kasmPasswordFile;

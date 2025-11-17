@@ -263,15 +263,15 @@ rfb::BoolParameter rfb::Server::printVideoArea
  "Print the detected video area % value.",
  false);
 rfb::IntParameter rfb::Server::videoQualityCRFCQP
-("VideoQualityCRFCPQ",
+("VideoQualityCRFCQP",
  "The CRF/CPQ value to use when encoding video",
  17, 0, 63);
 rfb::IntParameter rfb::Server::groupOfPicture
 ("GroupOfPicture",
  "The number of frames to group together for encoding",
  24, 0, 100);
-rfb::StringParameter rfb::Server::hwAccelDevice
-("HWAccelDevice",
+rfb::StringParameter rfb::Server::driNode
+("drinode",
  "Path to the hardware acceleration device (e.g. /dev/dri/renderD128)",
  "");
 rfb::StringParameter rfb::Server::kasmPasswordFile

@@ -2109,7 +2109,7 @@ sub DefineConfigToCLIConversion {
         ]
     }),
     KasmVNC::CliOption->new({
-        name => 'VideoQualityCRFCPQ',
+        name => 'VideoQualityCRFCQP',
         configKeys => [
           KasmVNC::ConfigKey->new({
             name => "encoding.video_streaming_mode.quality",

@@ -253,15 +253,12 @@ void ConnParams::setEncodings(int nEncodings, const rdr::S32* encodings)
       subsampling = subsample16X;
       break;
     case pseudoEncodingPreferBandwidth:
-      if (!rfb::Server::ignoreClientSettingsKasm && canChangeSettings) {
+      if (can_apply)
         Server::preferBandwidth.setParam(true);
-        clientparlog("preferBandwidth", true);
-      } else {
-        clientparlog("preferBandwidth", false);
-      }
+      clientparlog("preferBandwidth", can_apply);
       break;
     case pseudoEncodingMaxVideoResolution:
-      if (!rfb::Server::ignoreClientSettingsKasm && canChangeSettings)
+      if (can_apply)
         kasmPassed[KASM_MAX_VIDEO_RESOLUTION] = true;
       break;
     }

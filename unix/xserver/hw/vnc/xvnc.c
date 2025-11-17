@@ -585,6 +585,9 @@ ddxProcessArgument(int argc, char *argv[], int i)
         fail_unless_args(argc, i, 1);
         ++i;
         driNode = argv[i];
+        if (!vncSetParam("drinode", driNode))
+            ErrorF("Could not set drinode %s\n", driNode);
+
         return 2;
     }
 

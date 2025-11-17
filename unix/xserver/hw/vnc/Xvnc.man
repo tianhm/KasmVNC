@@ -602,6 +602,42 @@ With \fB-DetectScrolling\fP enabled, try to detect horizontal scrolls too, not j
 .B \-ScrollDetectLimit
 At least this % of the screen must change for scroll detection to happen, default 25.
 
+.TP
+.B \-videoCodec \fIcodec\fP
+Specifies the video codec to use for video streaming mode. Valid options are:
+.B auto
+(automatic selection),
+.B h264
+(H.264/AVC software encoding),
+.B h264_vaapi
+(H.264/AVC with VA-API hardware acceleration),
+.B avc
+(H.264/AVC software encoding),
+.B avc_vaapi
+(H.264/AVC with VA-API hardware acceleration),
+.B h265
+(H.265/HEVC software encoding),
+.B h265_vaapi
+(H.265/HEVC with VA-API hardware acceleration),
+.B hevc
+(H.265/HEVC software encoding),
+.B hevc_vaapi
+(H.265/HEVC with VA-API hardware acceleration),
+.B av1
+(AV1 software encoding),
+.B av1_vaapi
+(AV1 with VA-API hardware acceleration).
+Default is auto.
+
+.TP
+.B \-VideoQualityCRFCQP \fIquality\fP
+Sets the video quality level for video streaming mode using CRF (Constant Rate Factor) or CQP (Constant Quantization Parameter) depending on the codec. Lower values generally produce higher quality output. The valid range and optimal values depend on the selected codec but should be within 0-63. The default value is 17.
+
+.TP
+.B \-GroupOfPicture \fIgop\fP
+Sets the Group of Pictures (GOP) size for video streaming mode. This parameter controls how often keyframes are inserted in the video stream. A smaller GOP size results in more frequent keyframes, which can improve quality and error recovery but may increase bandwidth usage. The value should be a positive integer.
+
+
 .SH USAGE WITH INETD
 By configuring the \fBinetd\fP(1) service appropriately, Xvnc can be launched
 on demand when a connection comes in, rather than having to be started
