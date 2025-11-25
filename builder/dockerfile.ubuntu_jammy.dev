@@ -67,7 +67,11 @@ RUN echo "kasm-user  ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
     sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-RUN apt install -y nodejs nginx vainfo
+RUN apt install -y nodejs nginx
+
+# Packages required for VA-API hardware acceleration (Mesa + Intel)
+RUN apt install vainfo mesa-va-drivers mesa-vulkan-drivers \
+    intel-media-va-driver-non-free
 
 ENV SCRIPTS_DIR=/tmp/scripts
 COPY builder/scripts $SCRIPTS_DIR
