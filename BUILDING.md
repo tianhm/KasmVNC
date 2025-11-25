@@ -6,7 +6,7 @@
 git submodule init
 git submodule update --remote --merge
 sudo docker build -t kasmvnc:dev -f builder/dockerfile.ubuntu_jammy.dev .
-sudo docker run -it --rm -v ./:/src -p 6901:6901 -p 8443:8443 --name kasmvnc_dev kasmvnc:dev
+sudo docker run -it --rm -v ./:/src -p 2222:22 -p 6901:6901 -p 8443:8443 --device=/dev/dri/card0 --device=/dev/dri/renderD128 --group-add video --group-add render --name kasmvnc_dev kasmvnc:dev
 ```
 
 **The above assumes you are UID 1000 on the host as the container UID is 1000.**
