@@ -44,7 +44,8 @@ for file in "$script_dir"/dockerfile.*.build; do
 
     echo "Running container from image '$image_name'"
     # Run the container and capture the exit code
-    docker run -it -v "$current_dir":/src -v "$current_dir/builder/build":/build "$image_name"
+    docker run -it -v "$current_dir":/src -v "$current_dir/builder/build":/build --device=/dev/dri:/dev/dri "$image_name"
+
     exit_code=$?
 
     echo "Container for image '$image_name' "
