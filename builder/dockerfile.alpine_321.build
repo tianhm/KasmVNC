@@ -6,7 +6,7 @@ ENV XORG_VER 21.1.14
 
 RUN \
   echo "**** install build deps ****" && \
-  apk add \
+  apk add --no-cache \
     alpine-release \
     alpine-sdk \
     autoconf \
@@ -46,7 +46,6 @@ RUN \
     mesa-dev \
     mesa-dri-gallium \
     mesa-va-gallium \
-    intel-media-driver \
     meson \
     nettle-dev \
     openssl-dev \
@@ -73,6 +72,9 @@ RUN \
     ffmpeg-dev \
     libva-dev
 
+RUN if [ "$(uname -m)" = "x86_64" ]; then \
+        apk add --no-cache intel-media-driver; \
+    fi
 
 ENV SCRIPTS_DIR=/tmp/scripts
 COPY builder/scripts $SCRIPTS_DIR
