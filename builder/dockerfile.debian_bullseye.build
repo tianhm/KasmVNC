@@ -16,6 +16,11 @@ RUN apt-get update && apt-get -y install ninja-build nasm git libgnutls28-dev vi
 RUN apt-get update && apt-get -y install libpng-dev libtiff-dev libgif-dev libavcodec-dev libssl-dev libxrandr-dev \
     libxcursor-dev libavformat-dev libswscale-dev libva-dev
 
+# x86_64 specific operations
+RUN if [ "$(arch)" = "x86_64" ]; then \
+        apt-get update && apt-get install -y intel-media-va-driver-non-free; \
+    fi
+
 RUN CMAKE_URL="https://cmake.org/files/v3.22/cmake-3.22.0" && \
     ARCH=$(arch) && \
     if [ "$ARCH" = "x86_64" ]; then \
