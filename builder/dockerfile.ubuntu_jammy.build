@@ -16,6 +16,11 @@ RUN apt-get update && apt-get -y install ninja-build cmake nasm git libgnutls28-
 RUN apt-get update && apt-get -y install libpng-dev libtiff-dev libgif-dev libavcodec-dev libssl-dev libxrandr-dev \
     libxcursor-dev libavformat-dev libswscale-dev libva-dev
 
+# x86_64 specific operations
+RUN if [ "$(arch)" = "x86_64" ]; then \
+        apt-get update && apt-get install -y intel-media-va-driver-non-free; \
+    fi
+
 ENV SCRIPTS_DIR=/tmp/scripts
 COPY builder/scripts $SCRIPTS_DIR
 RUN $SCRIPTS_DIR/build-deps.sh
