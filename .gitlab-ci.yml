@@ -161,7 +161,6 @@ build_amd64:
   artifacts:
     paths:
       - output/
-  resource_group: "concurrent_$GROUP"
   parallel:
     *parallel_matrix
 
@@ -183,7 +182,6 @@ build_arm64:
   artifacts:
     paths:
       - output/
-  resource_group: "concurrent_$GROUP"
   parallel:
     *parallel_matrix
 
