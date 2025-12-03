@@ -182,9 +182,6 @@ build_arm64:
   artifacts:
     paths:
       - output/
-  parallel:
-    *parallel_matrix
-
 
 run_test_amd64:
   stage: run_test
@@ -211,8 +208,6 @@ run_test_amd64:
     reports:
       junit:
         - run_test/*.xml
-  parallel:
-    *parallel_matrix
 
 run_test_arm64:
   stage: run_test
