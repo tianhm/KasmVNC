@@ -49,11 +49,8 @@ using version_handler = std::unique_ptr<drmVersion, decltype([](drmVersionPtr pt
 static rfb::LogWriter vlog("H264VAAPIEncoder");
 
 namespace rfb {
-    VAAPIEncoder::VAAPIEncoder(uint32_t id, SConnection *conn, uint8_t frame_rate_,
-                                       uint16_t bit_rate_) : Encoder(conn, encodingKasmVideo,
-                                                                     static_cast<EncoderFlags>(
-                                                                         EncoderUseNativePF | EncoderLossy), -1),
-                                                             frame_rate(frame_rate_), bit_rate(bit_rate_) {
+    VAAPIEncoder::VAAPIEncoder(uint32_t id, SConnection *conn, uint8_t frame_rate_) : VideoEncoder(id, conn),
+                                                             frame_rate(frame_rate_) {
         static constexpr std::array<std::string_view, 4> drm_device_paths = {
             "/dev/dri/renderD128",
             "/dev/dri/card0",

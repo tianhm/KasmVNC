@@ -460,17 +460,9 @@ void EncodeManager::doUpdate(bool allowLossy, const Region& changed_,
                     encoder_probe.get_drm_device_path(),
                     encoder_params);
             }
-            screen_encoder_manager->sync_layout(layout);
-
-            const Palette palette;
-
-            for (auto &screen: *screen_encoder_manager) {
-                if (!screen.encoder)
-                    continue;
-
-                startRect(screen.layout.dimensions, encoderFullColour, true, STARTRECT_OVERRIDE_KASMVIDEO);
-                screen.encoder->writeRect(pb, palette);
-                endRect(STARTRECT_OVERRIDE_KASMVIDEO);
+            if (screen_encoder_manager->sync_layout(layout)) {
+                static const Palette palette;
+                screen_encoder_manager->writeRect(pb, palette);
             }
         }
 

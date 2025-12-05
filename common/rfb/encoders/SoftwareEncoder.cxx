@@ -16,7 +16,7 @@ static rfb::LogWriter vlog("SoftwareEncoder");
 namespace rfb {
     SoftwareEncoder::SoftwareEncoder(Screen layout_, const FFmpeg &ffmpeg_, SConnection *conn, KasmVideoEncoders::Encoder encoder_,
                                              VideoEncoderParams params) :
-        Encoder(conn, encodingKasmVideo, static_cast<EncoderFlags>(EncoderUseNativePF | EncoderLossy), -1), layout(layout_),
+        VideoEncoder(layout_.id, conn), layout(layout_),
         ffmpeg(ffmpeg_), encoder(encoder_), current_params(params), msg_codec_id(KasmVideoEncoders::to_msg_id(encoder)) {
         const auto *enc_name = KasmVideoEncoders::to_string(encoder);
         codec = ffmpeg.avcodec_find_encoder_by_name(enc_name);
@@ -40,7 +40,7 @@ namespace rfb {
         return conn->cp.supportsEncoding(encodingKasmVideo);
     }
 
-    void SoftwareEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) {
+    bool SoftwareEncoder::render(const PixelBuffer *pb) {
         // compress
         int stride;
 
@@ -70,7 +70,7 @@ namespace rfb {
             bpp = pb->getPF().bpp >> 3;
             if (!init(width, height, params)) {
                 vlog.error("Failed to initialize encoder");
-                return;
+                return false;
             }
 
             frame = frame_guard.get();
@@ -83,7 +83,7 @@ namespace rfb {
 
         if (ffmpeg.sws_scale(sws_guard.get(), src_data, src_line_size, 0, height, frame->data, frame->linesize) < 0) {
             vlog.error("Error while scaling image");
-            return;
+            return false;
         }
 
         frame->pts = pts++;
@@ -91,7 +91,7 @@ namespace rfb {
         int err = ffmpeg.avcodec_send_frame(ctx_guard.get(), frame);
         if (err < 0) {
             vlog.error("Error sending frame to codec (%s). Error code: %d", ffmpeg.get_error_description(err).c_str(), err);
-            return;
+            return false;
         }
 
         auto *pkt = pkt_guard.get();
@@ -106,11 +106,17 @@ namespace rfb {
         if (err < 0) {
             vlog.error("Error receiving packet from codec");
             writeSkipRect();
-            return;
+            return false;
         }
 
         if (pkt->flags & AV_PKT_FLAG_KEY)
             vlog.debug("Key frame %ld", frame->pts);
+
+        return true;
+    }
+
+    void SoftwareEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) {
+        auto *pkt = pkt_guard.get();
 
         auto *os = conn->getOutStream(conn->cp.supportsUdp);
         os->writeU8(layout.id);

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <rfb/PixelBuffer.h>
+#include "rfb/Encoder.h"
+
 namespace rfb {
     struct VideoEncoderParams {
         int width{};
@@ -17,9 +20,12 @@ namespace rfb {
         }
     };
 
-    class VideoEncoder {
+    class VideoEncoder : public Encoder {
     public:
+        VideoEncoder(Id id, SConnection *conn) :
+            Encoder(id, conn, encodingKasmVideo, static_cast<EncoderFlags>(EncoderUseNativePF | EncoderLossy), -1) {}
+        virtual bool render(const PixelBuffer *pb) = 0;
         virtual void writeSkipRect() = 0;
-        virtual ~VideoEncoder() = default;
+        ~VideoEncoder() override = default;
     };
 } // namespace rfb

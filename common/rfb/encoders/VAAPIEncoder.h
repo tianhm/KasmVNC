@@ -42,13 +42,12 @@ struct fd_handle {
 };
 
 namespace rfb {
-    class VAAPIEncoder final : public Encoder, public VideoEncoder {
+    class VAAPIEncoder final : public VideoEncoder {
         static inline VASurfaceAttrib surface_attribs[] = {
                 {VASurfaceAttribPixelFormat, VA_SURFACE_ATTRIB_SETTABLE, {VAGenericValueTypeInteger, {VA_FOURCC_RGBX}}},
                 {VASurfaceAttribPixelFormat, VA_SURFACE_ATTRIB_SETTABLE, {VAGenericValueTypeInteger, {VA_FOURCC_NV12}}}};
 
         uint8_t frame_rate{};
-        uint16_t bit_rate{};
         int bpp{};
 
         fd_handle fd;
@@ -61,7 +60,7 @@ namespace rfb {
         [[nodiscard]] bool init(int width, int height, int dst_width, int dst_height);
 
     public:
-        VAAPIEncoder(uint32_t id, SConnection *conn, uint8_t frame_rate, uint16_t bit_rate);
+        VAAPIEncoder(uint32_t id, SConnection *conn, uint8_t frame_rate);
         bool isSupported() const override;
         void writeRect(const PixelBuffer *pb, const Palette &palette) override;
         void writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) override;

@@ -8,7 +8,7 @@
 namespace rfb {
     class EncoderBuilderBase {
     public:
-        virtual Encoder *build() = 0;
+        virtual VideoEncoder *build() = 0;
         virtual ~EncoderBuilderBase() = default;
     };
 
@@ -25,7 +25,7 @@ namespace rfb {
     template<typename T>
     class EncoderBuilder : public EncoderBuilderBase {
         static constexpr uint32_t INVALID_ID{std::numeric_limits<uint32_t>::max()};
-        Screen layout{};
+        Screen layout;
         const FFmpeg *ffmpeg{};
         KasmVideoEncoders::Encoder encoder{};
         VideoEncoderParams params{};
@@ -83,7 +83,7 @@ namespace rfb {
             return *this;
         }
 
-        Encoder *build() override {
+        VideoEncoder *build() override {
             if (layout.id == INVALID_ID)
                 throw std::runtime_error("Encoder does not have a valid id");
 
@@ -108,7 +108,7 @@ namespace rfb {
     using VAAPIEncoderBuilder = EncoderBuilder<VAAPIEncoder>;
     using SoftwareEncoderBuilder = EncoderBuilder<SoftwareEncoder>;
 
-    Encoder *create_encoder(const Screen &layout, const FFmpeg *ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder video_encoder,
+    VideoEncoder *create_encoder(const Screen &layout, const FFmpeg *ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder video_encoder,
         const char *dri_node, VideoEncoderParams params) {
         switch (video_encoder) {
             case KasmVideoEncoders::Encoder::h264_vaapi:

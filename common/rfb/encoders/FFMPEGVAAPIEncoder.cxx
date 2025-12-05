@@ -18,7 +18,7 @@ static rfb::LogWriter vlog("FFMPEGVAAPIEncoder");
 namespace rfb {
     FFMPEGVAAPIEncoder::FFMPEGVAAPIEncoder(Screen layout_, const FFmpeg &ffmpeg_, SConnection *conn, KasmVideoEncoders::Encoder encoder_,
         const char *dri_node_, VideoEncoderParams params) :
-    Encoder(layout_.id, conn, encodingKasmVideo, static_cast<EncoderFlags>(EncoderUseNativePF | EncoderLossy), -1), layout(layout_),
+        VideoEncoder(layout_.id, conn), layout(layout_),
         ffmpeg(ffmpeg_), encoder(encoder_), current_params(params), msg_codec_id(KasmVideoEncoders::to_msg_id(encoder)),
         dri_node(dri_node_) {
         AVBufferRef *hw_device_ctx{};
@@ -178,7 +178,7 @@ namespace rfb {
         return conn->cp.supportsEncoding(encodingKasmVideo);
     }
 
-    void FFMPEGVAAPIEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) {
+    bool FFMPEGVAAPIEncoder::render(const PixelBuffer *pb) {
         // compress
         int stride;
         const auto rect = layout.dimensions;
@@ -207,7 +207,7 @@ namespace rfb {
             bpp = pb->getPF().bpp >> 3;
             if (!init(width, height, params)) {
                 vlog.error("Failed to initialize encoder");
-                return;
+                return false;
             }
 
             frame = sw_frame_guard.get();
@@ -221,7 +221,7 @@ namespace rfb {
         int err{};
         if (err = ffmpeg.sws_scale(sws_guard.get(), src_data, src_line_size, 0, height, frame->data, frame->linesize); err < 0) {
             vlog.error("Error (%s) while scaling image. Error code: %d", ffmpeg.get_error_description(err).c_str(), err);
-            return;
+            return false;
         }
 
         frame->pts = pts++;
@@ -233,7 +233,7 @@ namespace rfb {
 
         if (err = ffmpeg.avcodec_send_frame(ctx_guard.get(), hw_frame_guard.get()); err < 0) {
             vlog.error("Error sending frame to codec (%s). Error code: %d", ffmpeg.get_error_description(err).c_str(), err);
-            return;
+            return false;
         }
 
         auto *pkt = pkt_guard.get();
@@ -247,12 +247,17 @@ namespace rfb {
 
         if (err < 0) {
             vlog.error("Error receiving packet from codec");
-            return;
+            return false;
         }
 
         if (pkt->flags & AV_PKT_FLAG_KEY)
             vlog.debug("Key frame %ld", frame->pts);
 
+        return true;
+    }
+
+    void FFMPEGVAAPIEncoder::writeRect(const PixelBuffer *pb, const Palette &palette) {
+        auto *pkt = pkt_guard.get();
         auto *os = conn->getOutStream(conn->cp.supportsUdp);
         os->writeU8(layout.id);
         os->writeU8(msg_codec_id);

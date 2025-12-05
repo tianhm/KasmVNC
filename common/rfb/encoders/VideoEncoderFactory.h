@@ -6,6 +6,6 @@
 #include "rfb/ffmpeg.h"
 
 namespace rfb {
-    Encoder *create_encoder(const Screen &layout, const FFmpeg *ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder video_encoder, const char *dri_node, VideoEncoderParams params);
+    VideoEncoder *create_encoder(const Screen &layout, const FFmpeg *ffmpeg, SConnection *conn, KasmVideoEncoders::Encoder video_encoder, const char *dri_node, VideoEncoderParams params);
 
 } // namespace rfb

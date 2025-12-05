@@ -10,11 +10,15 @@ namespace rfb {
     class ScreenEncoderManager final : public Encoder {
         struct screen_t {
             Screen layout{};
-            Encoder *encoder{};
+            VideoEncoder *encoder{};
+            bool failed{};
         };
 
         uint8_t head{};
         uint8_t tail{};
+
+        uint64_t mask{};
+        uint64_t count{};
 
         std::array<screen_t, T> screens{};
         const FFmpeg &ffmpeg;
@@ -24,12 +28,19 @@ namespace rfb {
         std::vector<KasmVideoEncoders::Encoder> available_encoders;
         const char *dri_node{};
 
-        Encoder *add_encoder(const Screen &layout) const;
-        void add_screen(uint8_t index, const Screen &layout);
+        VideoEncoder *add_encoder(const Screen &layout) const;
+        bool add_screen(uint8_t index, const Screen &layout);
         [[nodiscard]] size_t get_screen_count() const;
         void remove_screen(uint8_t index);
 
     public:
+        struct stats_t {
+            uint64_t rects{};
+            uint64_t pixels{};
+            uint64_t bytes{};
+            uint64_t equivalent{};
+        };
+        stats_t get_stats() const;
         // Iterator
         using iterator = typename std::array<screen_t, T>::iterator;
         using const_iterator = typename std::array<screen_t, T>::const_iterator;
@@ -57,15 +68,20 @@ namespace rfb {
         ScreenEncoderManager(ScreenEncoderManager &&) = delete;
         ScreenEncoderManager &operator=(ScreenEncoderManager &&) = delete;
 
-        void sync_layout(const ScreenSet &layout);
+        bool sync_layout(const ScreenSet &layout);
 
-        KasmVideoEncoders::Encoder get_encoder() const { return base_video_encoder; }
+        KasmVideoEncoders::Encoder get_encoder() const {
+            return base_video_encoder;
+        }
 
         // Encoder
         bool isSupported() const override;
 
         void writeRect(const PixelBuffer *pb, const Palette &palette) override;
         void writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) override;
+
+    private:
+        stats_t stats{};
     };
 
     template class ScreenEncoderManager<>;

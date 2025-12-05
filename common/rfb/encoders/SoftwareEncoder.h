@@ -7,7 +7,7 @@
 #include "rfb/ffmpeg.h"
 
 namespace rfb {
-    class SoftwareEncoder final : public Encoder, public VideoEncoder {
+    class SoftwareEncoder final : public VideoEncoder {
         Screen layout;
         const FFmpeg &ffmpeg;
         const AVCodec *codec{};
@@ -34,6 +34,7 @@ namespace rfb {
         bool isSupported() const override;
         void writeRect(const PixelBuffer *pb, const Palette &palette) override;
         void writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) override;
+        bool render(const PixelBuffer *pb) override;
         void writeSkipRect() override;
     };
 } // namespace rfb
