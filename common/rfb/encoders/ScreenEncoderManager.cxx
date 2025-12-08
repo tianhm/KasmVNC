@@ -164,18 +164,18 @@ namespace rfb {
 
         if (active_screens.size() > 1) {
             tbb::parallel_for_each(active_screens.begin(), active_screens.end(), [this, pb, &send_frame](uint8_t index) {
-                const auto &screen = screens[index];
+                auto &screen = screens[index];
                 if (auto *encoder = screen.encoder; encoder) {
-                    auto *video_encoder = static_cast<VideoEncoder *>(encoder);
-                    if (video_encoder->render(pb)) {
+                    if (encoder->render(pb)) {
+                        screen.dirty = false;
                         std::lock_guard lock(conn_mutex);
                         send_frame(screen);
                     }
                 }
             });
         } else {
-            if (auto *video_encoder = static_cast<VideoEncoder *>(screens[head].encoder); video_encoder) {
-                if (video_encoder->render(pb))
+            if (auto encoder = screens[head].encoder; encoder) {
+                if (encoder->render(pb))
                     send_frame(screens[head]);
             }
         }
