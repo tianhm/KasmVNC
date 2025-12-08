@@ -460,7 +460,7 @@ void EncodeManager::doUpdate(bool allowLossy, const Region& changed_,
                     encoder_probe.get_drm_device_path(),
                     encoder_params);
             }
-            if (screen_encoder_manager->sync_layout(layout)) {
+            if (screen_encoder_manager->sync_layout(layout, changed)) {
                 static const Palette palette;
                 screen_encoder_manager->writeRect(pb, palette);
             }
