@@ -1,15 +1,18 @@
 #pragma once
+#include <tbb/spin_mutex.h>
 #include <vector>
-#include <mutex>
 #include "KasmVideoConstants.h"
 #include "VideoEncoder.h"
 #include "rfb/Encoder.h"
 #include "rfb/ffmpeg.h"
 
+inline constexpr uint8_t MAX_SCREENS = 64;
+
 namespace rfb {
-    template<int T = 64>
+    template<uint8_t T = MAX_SCREENS>
     class ScreenEncoderManager final : public Encoder {
-        static_assert(T <= 64, "ScreenEncoderManager mask should be changed as current mask supports T <= 64");
+        static_assert(
+            T <= std::numeric_limits<uint64_t>::digits, "ScreenEncoderManager mask should be changed as current mask supports T <= 64");
         struct screen_t {
             Screen layout{};
             VideoEncoder *encoder{};
@@ -17,11 +20,11 @@ namespace rfb {
         };
 
         uint8_t head{};
-        uint8_t tail{};
+        uint8_t count{};
 
         uint64_t mask{};
-        std::vector<uint8_t> active_screens;
-        std::mutex conn_mutex;
+        std::vector<uint8_t> screens_to_refresh;
+        tbb::spin_mutex conn_mutex;
 
         std::array<screen_t, T> screens{};
         const FFmpeg &ffmpeg;
@@ -35,7 +38,7 @@ namespace rfb {
         bool add_screen(uint8_t index, const Screen &layout);
         [[nodiscard]] size_t get_screen_count() const;
         void remove_screen(uint8_t index);
-        void update_active_screens();
+        void rebuild_screens_to_refresh();
 
     public:
         struct stats_t {

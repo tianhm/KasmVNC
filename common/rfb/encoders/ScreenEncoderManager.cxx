@@ -4,15 +4,15 @@
 #include <rfb/Region.h>
 #include <rfb/SMsgWriter.h>
 #include <rfb/encodings.h>
-#include <tbb/parallel_for_each.h>
 #include <sys/stat.h>
+#include <tbb/parallel_for_each.h>
 #include "VideoEncoder.h"
 #include "VideoEncoderFactory.h"
 
 namespace rfb {
     static LogWriter vlog("ScreenEncoderManager");
 
-    template<int T>
+    template<uint8_t T>
     ScreenEncoderManager<T>::ScreenEncoderManager(const FFmpeg &ffmpeg_, KasmVideoEncoders::Encoder encoder,
         const std::vector<KasmVideoEncoders::Encoder> &encoders, SConnection *conn, const char *dri_node, VideoEncoderParams params) :
         Encoder(conn, encodingKasmVideo, static_cast<EncoderFlags>(EncoderUseNativePF | EncoderLossy), -1),
@@ -20,16 +20,16 @@ namespace rfb {
         current_params(params),
         base_video_encoder(encoder),
         available_encoders(encoders) {
-        active_screens.reserve(T);
+        screens_to_refresh.reserve(T);
     }
 
-    template<int T>
+    template<uint8_t T>
     ScreenEncoderManager<T>::~ScreenEncoderManager() {
         for (uint8_t i = 0; i < get_screen_count(); ++i)
             remove_screen(i);
     };
 
-    template<int T>
+    template<uint8_t T>
     VideoEncoder *ScreenEncoderManager<T>::add_encoder(const Screen &layout) const {
         VideoEncoder *encoder{};
         try {
@@ -49,7 +49,7 @@ namespace rfb {
         return encoder;
     }
 
-    template<int T>
+    template<uint8_t T>
     bool ScreenEncoderManager<T>::add_screen(uint8_t index, const Screen &layout) {
         printf("SCREEN ADDED: %d (%d, %d, %d, %d)\n",
             index,
@@ -65,49 +65,54 @@ namespace rfb {
 
         screens[index] = {layout, encoder, true};
         head = std::min(head, index);
-        tail = std::max(tail, index);
-        update_active_screens();
+        ++count;
+        rebuild_screens_to_refresh();
 
         return true;
     }
 
-    template<int T>
+    template<uint8_t T>
     size_t ScreenEncoderManager<T>::get_screen_count() const {
-        return active_screens.size();
+        return count;
     }
 
-    template<int T>
+    template<uint8_t T>
     void ScreenEncoderManager<T>::remove_screen(uint8_t index) {
         if (screens[index].encoder) {
             delete screens[index].encoder;
             screens[index].encoder = nullptr;
 
             mask &= ~(1 << index);
-            update_active_screens();
+            --count;
+            rebuild_screens_to_refresh();
         }
         screens[index] = {};
     }
 
-    template<int T>
-    void ScreenEncoderManager<T>::update_active_screens() {
-        active_screens.clear();
+    template<uint8_t T>
+    void ScreenEncoderManager<T>::rebuild_screens_to_refresh() {
+        screens_to_refresh.clear();
 
-        for (uint8_t i = 0; i < T; ++i) {
-            if (mask & 1ULL << i)
-                active_screens.push_back(i);
+        uint64_t remaining_mask = mask;
+        while (remaining_mask) {
+            const auto pos = __builtin_ctzll(remaining_mask);
+            if (screens[pos].dirty)
+                screens_to_refresh.push_back(pos);
+
+            remaining_mask &= remaining_mask - 1;
         }
     }
 
-    template<int T>
+    template<uint8_t T>
     ScreenEncoderManager<T>::stats_t ScreenEncoderManager<T>::get_stats() const {
         return stats;
     }
 
-    template<int T>
+    template<uint8_t T>
     bool ScreenEncoderManager<T>::sync_layout(const ScreenSet &layout, const Region &region) {
         const auto bounds = region.get_bounding_rect();
 
-        for (uint8_t i = 0; i < layout.num_screens(); ++i) {
+        for (uint8_t i = 0; i < static_cast<uint8_t>(layout.num_screens()); ++i) {
             const auto &screen = layout.screens[i];
             auto id = screen.id;
             if (id > T) {
@@ -129,7 +134,7 @@ namespace rfb {
         return true;
     }
 
-    template<int T>
+    template<uint8_t T>
     bool ScreenEncoderManager<T>::isSupported() const {
         if (const auto *encoder = screens[head].encoder; encoder)
             return encoder->isSupported();
@@ -137,19 +142,32 @@ namespace rfb {
         return false;
     }
 
-    template<int T>
+    template<uint8_t T>
     void ScreenEncoderManager<T>::writeRect(const PixelBuffer *pb, const Palette &palette) {
-        if (active_screens.empty())
+        // if (!pb) {
+        //     vlog.error("writeRect called with null PixelBuffer");
+        //     return;
+        // }
+
+        if (screens_to_refresh.empty())
             return;
 
-        const auto send_frame = [this, pb, &palette](const screen_t &screen) {
+        const auto bpp = conn->cp.pf().bpp >> 3;
+        auto *out_conn = conn->getOutStream(conn->cp.supportsUdp);
+
+        if (!out_conn) {
+            vlog.error("writeRect: getOutStream returned NULL");
+            return;
+        }
+
+        const auto send_frame = [this, &bpp, out_conn, pb, &palette](const screen_t &screen) {
             ++stats.rects;
             const auto &rect = screen.layout.dimensions;
             const auto area = rect.area();
             stats.pixels += area;
-            const auto before = conn->getOutStream(conn->cp.supportsUdp)->length();
+            const auto before = out_conn->length();
 
-            const int equiv = 12 + (area * conn->cp.pf().bpp >> 3);
+            const int equiv = 12 + (area * bpp);
             stats.equivalent += equiv;
 
             const auto &encoder = screen.encoder;
@@ -158,12 +176,12 @@ namespace rfb {
             encoder->writeRect(pb, palette);
             conn->writer()->endRect();
 
-            const auto after = conn->getOutStream(conn->cp.supportsUdp)->length();
+            const auto after = out_conn->length();
             stats.bytes += after - before;
         };
 
-        if (active_screens.size() > 1) {
-            tbb::parallel_for_each(active_screens.begin(), active_screens.end(), [this, pb, &send_frame](uint8_t index) {
+        if (screens_to_refresh.size() > 1) {
+            tbb::parallel_for_each(screens_to_refresh.begin(), screens_to_refresh.end(), [this, pb, &send_frame](uint8_t index) {
                 auto &screen = screens[index];
                 if (auto *encoder = screen.encoder; encoder) {
                     if (encoder->render(pb)) {
@@ -181,10 +199,10 @@ namespace rfb {
         }
     }
 
-    template<int T>
+    template<uint8_t T>
     void ScreenEncoderManager<T>::writeSolidRect(int width, int height, const PixelFormat &pf, const rdr::U8 *colour) {
-        for (const auto &screen: screens) {
-            if (auto *encoder = screen.encoder; encoder)
+        for (const auto index: screens_to_refresh) {
+            if (auto *encoder = screens[index].encoder; encoder)
                 encoder->writeSolidRect(width, height, pf, colour);
         }
     }
