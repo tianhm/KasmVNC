@@ -41,10 +41,6 @@ SMsgReader::SMsgReader(SMsgHandler* handler_, rdr::InStream* is_)
 {
 }
 
-SMsgReader::~SMsgReader()
-{
-}
-
 void SMsgReader::readClientInit()
 {
   bool shared = is->readU8();
