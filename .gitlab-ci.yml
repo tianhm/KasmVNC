@@ -90,6 +90,13 @@ stages:
         GROUP: 16
 
 default:
+  retry: 2
+  tags:
+    - oci-fixed-amd
+
+functional_test:
+  stage: functional_test
+  image: $DEBIAN_STABLE_IMAGE
   tags:
     - oci-fixed-amd
   before_script:
@@ -161,6 +168,7 @@ build_amd64:
   artifacts:
     paths:
       - output/
+  resource_group: "concurrent_$GROUP"
   parallel:
     *parallel_matrix
 
@@ -182,6 +190,10 @@ build_arm64:
   artifacts:
     paths:
       - output/
+  resource_group: "concurrent_$GROUP"
+  parallel:
+    *parallel_matrix
+
 
 run_test_amd64:
   stage: run_test
@@ -208,6 +220,8 @@ run_test_amd64:
     reports:
       junit:
         - run_test/*.xml
+  parallel:
+    *parallel_matrix
 
 run_test_arm64:
   stage: run_test
