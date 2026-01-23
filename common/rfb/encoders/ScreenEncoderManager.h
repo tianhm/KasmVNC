@@ -23,7 +23,7 @@
 #include "rfb/Encoder.h"
 #include "rfb/ffmpeg.h"
 
-inline constexpr uint8_t MAX_SCREENS = 64;
+inline constexpr uint8_t MAX_SCREENS = 8;
 
 namespace rfb {
     template<uint8_t T = MAX_SCREENS>

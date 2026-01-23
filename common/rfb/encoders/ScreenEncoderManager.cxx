@@ -31,12 +31,13 @@ namespace rfb {
 
     template<uint8_t T>
     ScreenEncoderManager<T>::ScreenEncoderManager(const FFmpeg &ffmpeg_, KasmVideoEncoders::Encoder encoder,
-        const std::vector<KasmVideoEncoders::Encoder> &encoders, SConnection *conn, const char *dri_node, VideoEncoderParams params) :
+        const std::vector<KasmVideoEncoders::Encoder> &encoders, SConnection *conn, const char *dri_node_, VideoEncoderParams params) :
         Encoder(conn, encodingKasmVideo, static_cast<EncoderFlags>(EncoderUseNativePF | EncoderLossy), -1),
         ffmpeg(ffmpeg_),
         current_params(params),
         base_video_encoder(encoder),
-        available_encoders(encoders) {
+        available_encoders(encoders),
+        dri_node(dri_node_) {
         screens_to_refresh.reserve(T);
     }
 
