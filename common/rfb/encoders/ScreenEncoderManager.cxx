@@ -128,7 +128,7 @@ namespace rfb {
             const auto &screen = layout.screens[i];
             auto id = screen.id;
             if (id > T) {
-                assert("Wrong  id");
+                vlog.error("Wrong  id");
                 id = 0;
             }
 
