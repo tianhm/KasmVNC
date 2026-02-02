@@ -72,7 +72,6 @@ set(RFB_SOURCES
         encoders/SoftwareEncoder.cxx
         benchmark/FfmpegFrameFeeder.cpp
         encoders/ScreenEncoderManager.cxx
-        encoders/VAAPIEncoder.cxx
         encoders/FFMPEGVAAPIEncoder.cxx
         encoders/ScreenEncoderManager.cxx
         encoders/VideoEncoderFactory.cxx
