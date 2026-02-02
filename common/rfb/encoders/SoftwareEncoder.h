@@ -40,7 +40,6 @@ namespace rfb {
 
         int64_t pts{};
         int bpp{};
-        static void write_compact(rdr::OutStream *os, int value);
         [[nodiscard]] bool init(int width, int height, VideoEncoderParams params);
 
         template<typename T>

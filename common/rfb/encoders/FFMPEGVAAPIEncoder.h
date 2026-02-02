@@ -46,7 +46,6 @@ class FFMPEGVAAPIEncoder final : public VideoEncoder {
     int bpp{};
     const char *dri_node{};
 
-    static void write_compact(rdr::OutStream *os, int value);
     [[nodiscard]] bool init(int width, int height, VideoEncoderParams params);
 
     template<typename T>
